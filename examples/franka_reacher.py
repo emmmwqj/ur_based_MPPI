@@ -73,11 +73,11 @@ def mpc_robot_interactive(args, gym_instance):
     sim = gym_instance.sim
     world_yml = join_path(get_gym_configs_path(), world_file)
     with open(world_yml) as file:
-        world_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+        world_params = yaml.safe_load(file)
 
     robot_yml = join_path(get_gym_configs_path(),args.robot + '.yml')
     with open(robot_yml) as file:
-        robot_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+        robot_params = yaml.safe_load(file)
     sim_params = robot_params['sim_params']
     sim_params['asset_root'] = get_assets_path()
     if(args.cuda):

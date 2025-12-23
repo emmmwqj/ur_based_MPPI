@@ -39,6 +39,22 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('.'))
+from unittest.mock import MagicMock
+
+# 使用 Sphinx 原生的 Mock 功能，它能自动处理 torch.autograd 等子模块
+autodoc_mock_imports = [
+    'torch',
+    'quaternion',
+    'open3d',
+    'zmq',
+    'gym',
+    'trimesh',
+    'cv2',
+    'ghalton',
+    'PyKDL',            # 日志里新出现的库
+    'pkg_resources',    # 处理那个 UserWarning
+    'setup',            # 忽略 setup.py 的导入错误
+]
  
 # -- Project information -----------------------------------------------------
  

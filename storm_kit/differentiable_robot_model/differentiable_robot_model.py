@@ -112,12 +112,14 @@ class DifferentiableRobotModel(torch.nn.Module):
             rigid_body_params = self._urdf_model.get_body_parameters_from_urdf(i, link)
 
             if (learnable_rigid_body_config is not None) and (link.name in learnable_rigid_body_config.learnable_links):
+                # 创建一个可学习的刚体对象，用于优化刚体参数
                 body = LearnableRigidBody(
                     learnable_rigid_body_config=learnable_rigid_body_config,
                     gt_rigid_body_params=rigid_body_params,
                     tensor_args=self.tensor_args
                 )
             else:
+                # 创建一个不可学习的刚体对象，这个body里面有update_joint_state方法
                 body = DifferentiableRigidBody(
                     rigid_body_params=rigid_body_params, tensor_args=self.tensor_args
                 )
@@ -126,6 +128,7 @@ class DifferentiableRobotModel(torch.nn.Module):
                 self._n_dofs += 1
                 self._controlled_joints.append(i)
 
+            # self._bodies是LearnableRigidBody类和DifferentiableRigidBody类组成的列表
             self._bodies.append(body)
             self._name_to_idx_map[body.name] = i
     def delete_lxml_objects(self):
@@ -180,7 +183,9 @@ class DifferentiableRobotModel(torch.nn.Module):
             for i in range(1, len(self._bodies)):
                 if(i in self._controlled_joints):
                     idx = self._controlled_joints.index(i)
-                    self._bodies[i].update_joint_state(q[:,idx].unsqueeze(1), qd[:,idx].unsqueeze(1))
+
+                    # update_joint_state的源码在DifferentiableRigidBody类中
+                    self._bodies[i].update_joint_state(q[:,idx].unsqueeze(1), qd[:,idx].unsqueeze(1)) #改变了bodyies成员中(即下一行代码中的body)的joint_pose
                 body = self._bodies[i]
 
                 parent_name = self._urdf_model.get_name_of_parent_body(body.name)
@@ -234,6 +239,8 @@ class DifferentiableRobotModel(torch.nn.Module):
         inp_device = q.device
         q = q.to(**self.tensor_args)
         qd = qd.to(**self.tensor_args)
+
+        # 按照机器人 URDF 定义的运动学链 (Kinematic Chain)，从基座 (Base) 开始，逐级向下计算每个连杆的位姿
         self.update_kinematic_state(q, qd)
 
         pose = self._bodies[self._name_to_idx_map[link_name]].pose
@@ -484,7 +491,7 @@ class DifferentiableRobotModel(torch.nn.Module):
         )
 
         # Solve H qdd = F - Cv - G - damping_term
-        qdd = torch.solve(f.unsqueeze(2) - nle.unsqueeze(2), inertia_mat)[0].squeeze(2)
+        qdd = torch.linalg.solve(f.unsqueeze(2) - nle.unsqueeze(2), inertia_mat)[0].squeeze(2)
 
         return qdd
 
@@ -579,7 +586,7 @@ class DifferentiableRobotModel(torch.nn.Module):
                 axis_idx = self._bodies[idx].axis_idx
                 p_i = pose.translation()
                 z_i = torch.index_select(pose.rotation(),-1, axis_idx).squeeze(-1)
-                lin_jac[:, :, i] = torch.cross(z_i, ee_pos - p_i)
+                lin_jac[:, :, i] = torch.cross(z_i, ee_pos - p_i, dim=-1)
                 ang_jac[:, :, i] = z_i
         # print("12", time.time()-st)
         # st=time.time()

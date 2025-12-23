@@ -279,15 +279,15 @@ class OLGaussianMPC(Controller):
         elif self.cov_type == 'full_AxA':
             self.init_cov_action = torch.diag(torch.tensor([self.init_cov]*self.d_action, **self.tensor_args))
             self.cov_action = self.init_cov_action
-            self.scale_tril = matrix_cholesky(self.cov_action) #torch.cholesky(self.cov_action)
-            self.inv_cov_action = torch.cholesky_inverse(self.scale_tril)
+            self.scale_tril = matrix_cholesky(self.cov_action) #torch.linalg.cholesky(self.cov_action)
+            self.inv_cov_action = torch.linalg.cholesky_inverse(self.scale_tril)
 
         elif self.cov_type == 'full_HAxHA':
             self.init_cov_action = torch.diag(torch.tensor([self.init_cov] * (self.horizon * self.d_action), **self.tensor_args))
                 
             self.cov_action = self.init_cov_action
-            self.scale_tril = torch.cholesky(self.cov_action)
-            self.inv_cov_action = torch.cholesky_inverse(self.scale_tril)
+            self.scale_tril = torch.linalg.cholesky(self.cov_action)
+            self.inv_cov_action = torch.linalg.cholesky_inverse(self.scale_tril)
             
         else:
             raise ValueError('Unidentified covariance type in update_distribution')

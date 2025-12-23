@@ -51,7 +51,10 @@ traj_log = None
 
 def holonomic_robot(args):
     # load
-    tensor_args = {'device':'cpu','dtype':torch.float32}
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Running on device: {device}")
+    
+    tensor_args = {'device': device, 'dtype': torch.float32}
     simple_task = SimpleTask(robot_file="simple_reacher.yml", tensor_args=tensor_args)
     
 

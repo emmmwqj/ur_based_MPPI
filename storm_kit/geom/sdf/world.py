@@ -388,8 +388,8 @@ class WorldPointCloudCollision(WorldGridCollision):
                                   **self.tensor_args)
 
         
-        flat_tensor = torch.tensor([num_voxels[1:].prod(),# // (self.scale ** 2),
-                                    num_voxels[2],# // self.scale,
+        flat_tensor = torch.tensor([int(num_voxels[1:]).prod(),# // (self.scale ** 2),
+                                    int(num_voxels[2]),# // self.scale,
                                     1], device=self.tensor_args['device'], dtype=torch.int64)
         self.scene_voxels = torch.flatten(scene_voxel_tensor)
         
@@ -454,7 +454,7 @@ class WorldImageCollision(WorldCollision):
         
         num_voxels = self.im_dims
         
-        flat_tensor = torch.tensor([num_voxels[1], 1], device=self.tensor_args['device'], dtype=torch.int64)
+        flat_tensor = torch.tensor([int(num_voxels[1]), 1], device=self.tensor_args['device'], dtype=torch.int64)
         self.scene_voxels = torch.flatten(self.scene_im) * (1 / self.pitch[0])
 
         

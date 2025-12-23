@@ -51,7 +51,8 @@ def create_dataset(robot_name):
     mpc_yml_file = join_path(get_mpc_configs_path(), task_file)
 
     with open(mpc_yml_file) as file:
-        exp_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+        # 加载yaml文件内容为字典存储到exp_params变量中，其实就是个字典套字典的结构（键值对中的值是字典类型）
+        exp_params = yaml.safe_load(file)
     exp_params['robot_params'] = exp_params['model'] #robot_params
     exp_params['cost']['primitive_collision']['weight'] = 0.0
     exp_params['control_space'] = 'pos'
@@ -76,6 +77,7 @@ def create_dataset(robot_name):
 
     start_state = torch.zeros((rollout_fn.dynamics_model.d_state), **tensor_args)
 
+    # q_samples就是act_seq一般是 “位置” 或 “速度” 或 “加速度” 或 “jerk” 序列
     state_dict = rollout_fn.dynamics_model.rollout_open_loop(start_state, q_samples)
 
     link_pos_seq = state_dict['link_pos_seq']

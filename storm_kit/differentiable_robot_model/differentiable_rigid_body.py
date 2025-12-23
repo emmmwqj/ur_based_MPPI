@@ -160,6 +160,7 @@ class DifferentiableRigidBody(torch.nn.Module):
         if(batch_size != self._batch_size):
             #print('calling once', self._batch_size, batch_size)
             self._batch_size = batch_size
+            # trans是连杆的长度
             self._batch_trans = self.trans.unsqueeze(0).repeat(self._batch_size,1)
             self._batch_rot = self.fixed_rotation.repeat(self._batch_size, 1, 1)
             

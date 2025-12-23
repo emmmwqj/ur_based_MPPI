@@ -209,7 +209,7 @@ def optimize_process(control_string, opt_queue, result_queue):
 
 
     """
-    controller = torch.load(control_string)
+    controller = torch.load(control_string, weights_only=False)
     try:
         controller.rollout_fn.dynamics_model.robot_model.load_lxml_objects()
     except Exception:

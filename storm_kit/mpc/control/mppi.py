@@ -128,9 +128,12 @@ class MPPI(OLGaussianMPC):
         #print(self.best_traj.shape, best_idx, w.shape)
         #self.best_trajs = torch.index_select(
 
-        weighted_seq = w.T * actions.T
+        # w is 1D (num_particles,), actions is 3D (num_particles, horizon, d_action)
+        # We need to weight each particle's action sequence by its weight
+        # Using unsqueeze to broadcast properly instead of deprecated .T
+        weighted_seq = w.unsqueeze(-1).unsqueeze(-1) * actions
 
-        sum_seq = torch.sum(weighted_seq.T, dim=0)
+        sum_seq = torch.sum(weighted_seq, dim=0)
 
         new_mean = sum_seq
         #print(self.stomp_matrix.shape, self.full_scale_tril.shape)
@@ -199,7 +202,7 @@ class MPPI(OLGaussianMPC):
                 self.step_size_cov * cov_update
             #if(cov_update == 'diag_AxA'):
             #    self.scale_tril = torch.sqrt(self.cov_action)
-            # self.scale_tril = torch.cholesky(self.cov_action)
+            # self.scale_tril = torch.linalg.cholesky(self.cov_action)
 
         
     def _shift(self, shift_steps):
@@ -225,9 +228,9 @@ class MPPI(OLGaussianMPC):
                 
             elif self.cov_type == 'full_AxA':
                 self.cov_action += self.kappa*self.I
-                self.scale_tril = matrix_cholesky(self.cov_action) # torch.cholesky(self.cov_action) #
-                # self.scale_tril = torch.cholesky(self.cov_action)
-                # self.inv_cov_action = torch.cholesky_inverse(self.scale_tril)
+                self.scale_tril = matrix_cholesky(self.cov_action) # torch.linalg.cholesky(self.cov_action) #
+                # self.scale_tril = torch.linalg.cholesky(self.cov_action)
+                # self.inv_cov_action = torch.linalg.cholesky_inverse(self.scale_tril)
             
             elif self.cov_type == 'full_HAxHA':
                 self.cov_action += self.kappa * self.I
@@ -250,8 +253,8 @@ class MPPI(OLGaussianMPC):
                 #set bottom right AxA block to init_cov value
                 self.cov_action[-shift_dim:, -shift_dim:] = self.init_cov*I2 
                 #update cholesky decomp
-                self.scale_tril = torch.cholesky(self.cov_action)
-                # self.inv_cov_action = torch.cholesky_inverse(self.scale_tril)
+                self.scale_tril = torch.linalg.cholesky(self.cov_action)
+                # self.inv_cov_action = torch.linalg.cholesky_inverse(self.scale_tril)
 
 
     def _exp_util(self, costs, actions):

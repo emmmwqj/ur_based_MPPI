@@ -73,7 +73,10 @@ def build_int_matrix(horizon, diagonal=0, device='cpu', dtype=torch.float32, ord
         for _ in range(order):
             chain_list.append(integrate_matrix)
             chain_list.append(diag_dt)
-    integrate_matrix = torch.chain_matmul(*chain_list)
+    if len(chain_list) == 1:
+        integrate_matrix = chain_list[0]
+    else:
+        integrate_matrix = torch.linalg.multi_dot(chain_list)
     return integrate_matrix
 
 

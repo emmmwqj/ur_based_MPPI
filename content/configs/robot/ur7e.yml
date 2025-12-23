@@ -1,0 +1,64 @@
+# 机器人名称定义
+robot_name: "ur7e"
+
+# 连杆映射定义：将 URDF 中的连杆名称映射到 STORM 内部索引
+link_names: 
+  - "shoulder_link"
+  - "upper_arm_link"
+  - "forearm_link"
+  - "wrist_1_link"
+  - "wrist_2_link"
+  - "wrist_3_link"
+
+# 碰撞球定义：从 Lula 格式转换而来
+# 注意：STORM 要求 key 是连杆名，value 是一个包含 center 和 radius 的列表
+collision_spheres:
+  shoulder_link:
+    - center: [-0.001, -0.008, 0.004]
+      radius: 0.0786
+  upper_arm_link:
+    - center: [-0.124, -0.0, 0.153]
+      radius: 0.0795
+    - center: [-0.324, -0.006, 0.157]
+      radius: 0.0789
+    - center: [-0.008, 0.002, 0.142]
+      radius: 0.0789
+    - center: [-0.418, -0.002, 0.139]
+      radius: 0.0789
+    - center: [-0.226, 0.005, 0.154]
+      radius: 0.0789
+  forearm_link:
+    - center: [0.001, 0.002, 0.023]
+      radius: 0.0721
+    - center: [-0.39, -0.001, -0.0]
+      radius: 0.0571
+    - center: [-0.081, 0.005, 0.005]
+      radius: 0.0551
+    - center: [-0.237, 0.001, 0.006]
+      radius: 0.0566
+    - center: [-0.161, -0.0, 0.006]
+      radius: 0.0566
+    - center: [-0.303, 0.001, 0.006]
+      radius: 0.0566
+  wrist_1_link:
+    - center: [0.0, 0.01, -0.002]
+      radius: 0.0583
+    - center: [-0.007, 0.009, -0.057]
+      radius: 0.0483
+  wrist_2_link:
+    - center: [0.0, -0.008, 0.0]
+      radius: 0.0586
+  wrist_3_link:
+    - center: [0.005, -0.007, -0.03]
+      radius: 0.0522
+
+# 自碰撞忽略列表：防止相邻或固定连接的连杆触发错误的碰撞
+# 这对解决你之前“伸直也报碰撞”的问题至关重要
+self_collision_ignore:
+  shoulder_link: ["upper_arm_link", "base_link_inertia"]
+  upper_arm_link: ["shoulder_link", "forearm_link"]
+  forearm_link: ["upper_arm_link", "wrist_1_link"]
+  wrist_1_link: ["forearm_link", "wrist_2_link"]
+  wrist_2_link: ["wrist_1_link", "wrist_3_link"]
+  wrist_3_link: ["wrist_2_link"]
+

@@ -24,6 +24,8 @@ import torch
 import yaml
 import numpy as np
 
+# 下面的导入是相对导入，.代表当前目录，..代表上一级目录，...代表上上一级目录
+# “from storm_kit.geom.geom_types import tensor_circle” 这种是绝对导入
 from ...util_file import get_mpc_configs_path as mpc_configs_path
 from ...mpc.rollout.simple_reacher import SimpleReacher
 from ...mpc.control import MPPI
@@ -55,7 +57,7 @@ class SimpleTask(BaseTask):
         mpc_yml_file = join_path(mpc_configs_path(), robot_file)
 
         with open(mpc_yml_file) as file:
-            exp_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+            exp_params = yaml.safe_load(file)
 
         rollout_fn = self.get_rollout_fn(exp_params=exp_params, tensor_args=self.tensor_args)
 

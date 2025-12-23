@@ -44,7 +44,7 @@ class URDFKinematicModel(DynamicsModelBase):
         self.num_traj_points = int(round(horizon / dt))
         self.link_names = link_names
 
-        self.robot_model = DifferentiableRobotModel(urdf_path, None, tensor_args=tensor_args)
+        self.robot_model = DifferentiableRobotModel(urdf_path, None, tensor_args=tensor_args) # 由传入的urdf_path构建机器人模型
 
         #self.robot_model.half()
         self.n_dofs = self.robot_model._n_dofs
@@ -160,6 +160,8 @@ class URDFKinematicModel(DynamicsModelBase):
         
         
         #print(state.shape)
+
+        # 调用 step_fn 进行积分
         state_seq = self.step_fn(state, nth_act_seq, state_seq, self._dt_h, self.n_dofs, self._integrate_matrix, self._fd_matrix)
         #state_seq = self.enforce_bounds(state_seq)
         # timestep array
@@ -203,19 +205,22 @@ class URDFKinematicModel(DynamicsModelBase):
         
         
         curr_state = self.prev_state_buffer[-1:,:self.n_dofs * 3]
- 
+
+        # 根据动力学模型和动作序列进行前向传播得到未来的位置，速度，加速度序列
         with profiler.record_function("tensor_step"):
-            # forward step with step matrix:
-            state_seq = self.tensor_step(curr_state, act_seq, state_seq, curr_dt)
+            # forward step with step matrix:（欧拉积分）
+            # act_seq一般是 “位置” 或 “速度” 或 “加速度” 或 “jerk” 序列
+            state_seq = self.tensor_step(curr_state, act_seq, state_seq, curr_dt)   # 这里的state_seq是预先分配好的内存
         
         #print(start_state[:,self.n_dofs*2 : self.n_dofs*3])
 
+        # 根据位置和速度序列计算末端执行器的位置和姿态，以及雅可比矩阵
         shape_tup = (curr_batch_size * num_traj_points, self.n_dofs)
         with profiler.record_function("fk + jacobian"):
             ee_pos_seq, ee_rot_seq, lin_jac_seq, ang_jac_seq = self.robot_model.compute_fk_and_jacobian(state_seq[:,:,:self.n_dofs].view(shape_tup),
                                                                                                     state_seq[:,:,self.n_dofs:2 * self.n_dofs].view(shape_tup),
                                                                                                     link_name=self.ee_link_name)
-
+        # 根据运动学模型获取末端执行器和各个link的位置和姿态
         # get link poses:
         for ki,k in enumerate(self.link_names):
             link_pos, link_rot = self.robot_model.get_link_pose(k)

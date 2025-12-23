@@ -1,0 +1,28 @@
+# @package _global_
+# UR7e configuration for Isaac Sim 5.1
+use_cuda: True
+cuda_device_num: 0
+
+sim_params:
+  # UR7e URDF 文件路径（相对于 assets 目录）
+  sim_urdf: "urdf/ur7e/ur7e.urdf"
+
+  # Isaac Sim: 机器人在原点，无旋转
+  # Position: [x, y, z], Quaternion: [qx, qy, qz, qw] in xyzw format
+  robot_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+  # UR7e 初始关节角度 (6 DOF)
+  # [base, shoulder, elbow, wrist1, wrist2, wrist3]
+  init_state: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
+
+  control_mode: 'position'
+
+  asset_options:
+    fix_base_link: True
+    flip_visual_attachments: False 
+    armature: 0.001
+    disable_gravity: True
+    collapse_fixed_joints: True
+
+  camera:
+    label_map: {'robot':2, 'ground':0}

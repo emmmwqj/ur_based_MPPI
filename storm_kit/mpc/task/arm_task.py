@@ -50,16 +50,16 @@ class ArmTask(BaseTask):
         robot_yml = join_path(get_gym_configs_path(), robot_file)
 
         with open(robot_yml) as file:
-            robot_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+            robot_params = yaml.safe_load(file)
 
         world_yml = join_path(get_gym_configs_path(), collision_file)
         with open(world_yml) as file:
-            world_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+            world_params = yaml.safe_load(file)
 
         mpc_yml_file = join_path(mpc_configs_path(), task_file)
 
         with open(mpc_yml_file) as file:
-            exp_params = yaml.safe_load(file, Loader=yaml.FullLoader)
+            exp_params = yaml.safe_load(file)
         exp_params['robot_params'] = exp_params['model'] #robot_params
 
 
