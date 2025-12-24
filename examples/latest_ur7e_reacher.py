@@ -266,6 +266,231 @@ class IsaacSimWorld:
         return None
 
 
+class DebugDrawHelper:
+    """Helper class to draw debug lines in Isaac Sim using omni.debugdraw"""
+    
+    def __init__(self):
+        self._debug_draw = None
+        self._initialized = False
+        
+    def initialize(self):
+        """Initialize debug draw interface for Isaac Sim 5.1"""
+        # Try multiple methods to get debug draw interface
+        methods_tried = []
+        
+        # Method 1: Isaac Sim 5.1 standard path
+        try:
+            from omni.isaac.debug_draw import _debug_draw
+            self._debug_draw = _debug_draw.acquire_debug_draw_interface()
+            self._initialized = True
+            print("Debug draw interface initialized (method 1: omni.isaac.debug_draw._debug_draw)")
+            return
+        except Exception as e:
+            methods_tried.append(f"Method 1 failed: {e}")
+        
+        # Method 2: Alternative for Isaac Sim 5.x
+        try:
+            import omni.isaac.debug_draw
+            self._debug_draw = omni.isaac.debug_draw.acquire_debug_draw_interface()
+            self._initialized = True
+            print("Debug draw interface initialized (method 2: omni.isaac.debug_draw.acquire)")
+            return
+        except Exception as e:
+            methods_tried.append(f"Method 2 failed: {e}")
+            
+        # Method 3: Use carb debugdraw
+        try:
+            import carb.debugdraw
+            self._debug_draw = carb.debugdraw.acquire_debug_draw_interface()
+            self._initialized = True
+            print("Debug draw interface initialized (method 3: carb.debugdraw)")
+            return
+        except Exception as e:
+            methods_tried.append(f"Method 3 failed: {e}")
+            
+        # Method 4: omni.debugdraw extension
+        try:
+            import omni.kit.commands
+            # Enable the debug draw extension first
+            import omni.kit.app
+            ext_manager = omni.kit.app.get_app().get_extension_manager()
+            ext_manager.set_extension_enabled_immediate("omni.isaac.debug_draw", True)
+            
+            from omni.isaac.debug_draw import _debug_draw
+            self._debug_draw = _debug_draw.acquire_debug_draw_interface()
+            self._initialized = True
+            print("Debug draw interface initialized (method 4: enabled extension first)")
+            return
+        except Exception as e:
+            methods_tried.append(f"Method 4 failed: {e}")
+        
+        # Method 5: Try getting interface from omni.kit
+        try:
+            import omni.kit.debug_draw
+            self._debug_draw = omni.kit.debug_draw.get_debug_draw_interface()
+            self._initialized = True
+            print("Debug draw interface initialized (method 5: omni.kit.debug_draw)")
+            return
+        except Exception as e:
+            methods_tried.append(f"Method 5 failed: {e}")
+            
+        print("Warning: Could not initialize debug draw interface")
+        for msg in methods_tried:
+            print(f"  {msg}")
+        self._initialized = False
+                
+    def clear_lines(self):
+        """Clear all debug lines"""
+        if self._initialized and self._debug_draw:
+            try:
+                self._debug_draw.clear_lines()
+            except:
+                pass
+                
+    def draw_lines(self, points, color=(0.0, 1.0, 0.0), line_thickness=2.0):
+        """Draw connected line segments through points
+        
+        Args:
+            points: numpy array of shape (N, 3) containing 3D points
+            color: RGB tuple (0-1 range)
+            line_thickness: thickness of the lines
+        """
+        if not self._initialized or self._debug_draw is None:
+            return
+            
+        if len(points) < 2:
+            return
+            
+        try:
+            # Draw line segments between consecutive points
+            for i in range(len(points) - 1):
+                p1 = points[i].tolist() if hasattr(points[i], 'tolist') else list(points[i])
+                p2 = points[i + 1].tolist() if hasattr(points[i + 1], 'tolist') else list(points[i + 1])
+                
+                # Ensure color is in correct format (RGBA with alpha=1)
+                rgba = (float(color[0]), float(color[1]), float(color[2]), 1.0)
+                
+                self._debug_draw.draw_line(p1, rgba, p2, rgba)
+        except Exception as e:
+            # Silently ignore drawing errors
+            pass
+            
+    def draw_trajectory(self, trajectory_points, color=(0.0, 1.0, 0.0)):
+        """Draw a trajectory as connected lines
+        
+        Args:
+            trajectory_points: numpy array of shape (N, 3)
+            color: RGB tuple
+        """
+        self.draw_lines(trajectory_points, color)
+
+
+class UsdCurveDrawer:
+    """Fallback trajectory drawer using USD BasisCurves primitives"""
+    
+    def __init__(self):
+        self.curves = {}
+        self.curve_count = 0
+        self._stage = None
+        self._initialized = False
+        
+    def initialize(self):
+        """Initialize USD stage reference"""
+        try:
+            from pxr import Usd, UsdGeom, Gf, Vt
+            from isaacsim.core.utils.stage import get_current_stage
+            self._stage = get_current_stage()
+            self._initialized = True
+            print("USD Curve drawer initialized successfully")
+            return True
+        except Exception as e:
+            print(f"Warning: Could not initialize USD curve drawer: {e}")
+            self._initialized = False
+            return False
+            
+    def clear_curves(self):
+        """Remove all trajectory curves from scene"""
+        try:
+            from pxr import Usd
+            if self._stage is None:
+                return
+            # Delete the trajectories prim and all children
+            traj_prim = self._stage.GetPrimAtPath("/World/trajectories")
+            if traj_prim.IsValid():
+                self._stage.RemovePrim("/World/trajectories")
+            self.curves = {}
+            self.curve_count = 0
+        except Exception as e:
+            pass
+            
+    def draw_trajectory(self, points, color=(0.0, 1.0, 0.0), traj_id=0):
+        """Draw trajectory using USD BasisCurves
+        
+        Args:
+            points: numpy array of shape (N, 3)
+            color: RGB tuple (0-1 range)
+            traj_id: unique identifier for this trajectory
+        """
+        try:
+            from pxr import Usd, UsdGeom, Gf, Vt, UsdShade, Sdf
+            import numpy as np
+            
+            if self._stage is None or not self._initialized:
+                return
+                
+            if len(points) < 2:
+                return
+            
+            # Create or get trajectories scope
+            traj_scope_path = "/World/trajectories"
+            traj_scope = self._stage.GetPrimAtPath(traj_scope_path)
+            if not traj_scope.IsValid():
+                UsdGeom.Scope.Define(self._stage, traj_scope_path)
+            
+            # Create curve path
+            curve_path = f"{traj_scope_path}/traj_{traj_id}"
+            
+            # Remove existing curve if present
+            existing_prim = self._stage.GetPrimAtPath(curve_path)
+            if existing_prim.IsValid():
+                self._stage.RemovePrim(curve_path)
+            
+            # Create BasisCurves
+            curves = UsdGeom.BasisCurves.Define(self._stage, curve_path)
+            
+            # Set curve type to linear
+            curves.GetTypeAttr().Set(UsdGeom.Tokens.linear)
+            curves.GetWrapAttr().Set(UsdGeom.Tokens.nonperiodic)
+            
+            # Convert points to Vt.Vec3fArray
+            vt_points = Vt.Vec3fArray([Gf.Vec3f(float(p[0]), float(p[1]), float(p[2])) for p in points])
+            curves.GetPointsAttr().Set(vt_points)
+            
+            # Set curve vertex counts (one curve with all points)
+            curves.GetCurveVertexCountsAttr().Set(Vt.IntArray([len(points)]))
+            
+            # Set widths (line thickness)
+            line_width = 0.003  # 3mm width
+            curves.GetWidthsAttr().Set(Vt.FloatArray([line_width] * len(points)))
+            
+            # Set color using displayColor primvar
+            color_primvar = curves.GetDisplayColorPrimvar()
+            color_primvar.Set(Vt.Vec3fArray([Gf.Vec3f(float(color[0]), float(color[1]), float(color[2]))]))
+            
+            # Make it visible
+            curves.GetVisibilityAttr().Set(UsdGeom.Tokens.inherited)
+            
+            # Set purpose to render (not guide or proxy)
+            curves.GetPurposeAttr().Set(UsdGeom.Tokens.default_)
+            
+            self.curves[traj_id] = curve_path
+            
+        except Exception as e:
+            import traceback
+            print(f"[DEBUG] USD Curve drawing error for traj_{traj_id}: {e}")
+            traceback.print_exc()
+
+
 def mpc_robot_interactive(args):
     """Main function for MPC robot control in Isaac Sim 5.1"""
     
@@ -289,7 +514,15 @@ def mpc_robot_interactive(args):
     print("Starting UR7e MPC Robot Interactive")
     print("=" * 50)
     
+    # Initialize trajectory visualization
+    # Use USD Curves directly since Debug Draw is unreliable
+    print("Initializing trajectory visualization with USD Curves...")
+    
+    usd_curve_drawer = None
+    use_usd_curves = True  # Force use USD curves
+    
     vis_ee_target = True
+    vis_mpc_trajectory = True  # Enable MPC trajectory visualization
     robot_file = args.robot + '_isaacsim.yml'  # Use Isaac Sim specific config
     task_file = args.robot + '_reacher_isaacsim.yml'  # Use Isaac Sim specific task config
     world_file = 'collision_primitives_3d.yml'
@@ -372,6 +605,12 @@ def mpc_robot_interactive(args):
     # Reset world once to initialize robot articulation
     print("Performing initial world reset to configure robot...")
     world.reset()
+    
+    # Re-initialize USD curve drawer after world reset (stage may have changed)
+    if use_usd_curves:
+        usd_curve_drawer = UsdCurveDrawer()
+        usd_curve_drawer.initialize()
+        print("USD Curve drawer initialized for trajectory visualization")
     
     # Force set the robot pose after reset
     print("Setting robot pose explicitly...")
@@ -623,6 +862,58 @@ def mpc_robot_interactive(args):
                 ee_pos_world = w_T_r.transform_point(e_pos)
                 world_instance.update_marker_pose("ee_current", ee_pos_world)
             
+            # Draw MPC predicted trajectories
+            if vis_mpc_trajectory and use_usd_curves and usd_curve_drawer is not None:
+                # Clear previous curves
+                usd_curve_drawer.clear_curves()
+                
+                # Get top trajectories from MPC
+                try:
+                    top_trajs = mpc_control.top_trajs
+                    if top_trajs is not None:
+                        top_trajs = top_trajs.cpu().float()
+                        n_p, n_t = top_trajs.shape[0], top_trajs.shape[1]  # n_particles, n_timesteps
+                        
+                        # Debug: print trajectory info every 50 iterations
+                        if i % 50 == 0:
+                            print(f"[DEBUG] top_trajs shape: {top_trajs.shape}, n_particles={n_p}, n_timesteps={n_t}")
+                            print(f"[DEBUG] top_trajs[0] first point: {top_trajs[0, 0, :].numpy()}")
+                            print(f"[DEBUG] top_trajs[0] last point: {top_trajs[0, -1, :].numpy()}")
+                        
+                        # Transform trajectories to world frame
+                        w_pts = w_robot_coord.transform_point(top_trajs.view(n_p * n_t, 3)).view(n_p, n_t, 3)
+                        top_trajs_world = w_pts.cpu().numpy()
+                        
+                        # Debug: print transformed trajectory info
+                        if i % 50 == 0:
+                            print(f"[DEBUG] top_trajs_world shape: {top_trajs_world.shape}")
+                            print(f"[DEBUG] top_trajs_world[0] first point: {top_trajs_world[0, 0, :]}")
+                            print(f"[DEBUG] top_trajs_world[0] last point: {top_trajs_world[0, -1, :]}")
+                            print(f"[DEBUG] USD curve drawer initialized: {usd_curve_drawer._initialized}")
+                        
+                        # Draw only the best trajectory (index 0) in green
+                        num_trajs_to_draw = 1  # Only draw the best trajectory
+                        if i % 50 == 0:
+                            print(f"[DEBUG] Drawing best trajectory with USD Curves...")
+                            
+                        for k in range(num_trajs_to_draw):
+                            pts = top_trajs_world[k, :, :]
+                            color = (1.0, 1.0, 1.0)  # White for best trajectory
+                            
+                            usd_curve_drawer.draw_trajectory(pts, color=color, traj_id=k)
+                            
+                        if i % 50 == 0:
+                            print(f"[DEBUG] Trajectory drawing completed for iteration {i}")
+                            print(f"[DEBUG] Created curves: {list(usd_curve_drawer.curves.keys())}")
+                    else:
+                        if i % 50 == 0:
+                            print(f"[DEBUG] top_trajs is None at iteration {i}")
+                except Exception as traj_e:
+                    if i % 50 == 0:
+                        print(f"[DEBUG] Trajectory drawing error: {traj_e}")
+                        import traceback
+                        traceback.print_exc()
+            
             # Print status every 10 iterations
             if i % 10 == 0:
                 print(f"[{i}] Error: {['{:.3f}'.format(x) for x in ee_error]}, "
@@ -659,11 +950,46 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', action='store_true', default=True, help='use cuda')
     parser.add_argument('--headless', action='store_true', default=False, help='headless mode')
     parser.add_argument('--control_space', type=str, default='acc', help='Control space')
+    parser.add_argument('--fast', action='store_true', default=False, help='Fast startup mode (lower quality rendering)')
+    parser.add_argument('--hq', action='store_true', default=False, help='High quality rendering mode (slower startup)')
     args = parser.parse_args()
     
     # Launch Isaac Sim - MUST be inside __main__ to prevent multiprocessing issues
     from isaacsim import SimulationApp
-    simulation_app = SimulationApp({"headless": args.headless})
+    
+    # SimulationApp configuration based on mode
+    if args.fast:
+        # Fast startup mode - lower quality, faster loading
+        print("Starting Isaac Sim in FAST mode (lower quality, faster startup)...")
+        simulation_config = {
+            "headless": args.headless,
+            "width": 1280,
+            "height": 720,
+            "anti_aliasing": 0,  # Disable anti-aliasing
+            "renderer": "RayTracedLighting",  # Faster renderer
+            "multi_gpu": False,
+            "sync_loads": True,
+        }
+    elif args.hq:
+        # High quality mode - best visuals, slower startup
+        print("Starting Isaac Sim in HIGH QUALITY mode (best visuals, slower startup)...")
+        simulation_config = {
+            "headless": args.headless,
+            "width": 1920,
+            "height": 1080,
+            "anti_aliasing": 1,  # Enable anti-aliasing
+            "renderer": "PathTracing",  # Best quality renderer
+            "multi_gpu": False,
+            "sync_loads": True,
+        }
+    else:
+        # Default mode - balanced
+        print("Starting Isaac Sim in DEFAULT mode...")
+        simulation_config = {
+            "headless": args.headless,
+        }
+    
+    simulation_app = SimulationApp(simulation_config)
     
     # Now import Isaac Sim modules after SimulationApp is created
     import torch
