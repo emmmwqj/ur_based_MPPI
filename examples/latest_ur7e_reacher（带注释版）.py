@@ -69,13 +69,13 @@ UR7e 机械臂 MPC 控制程序 - Isaac Sim 5.1 版本
 
 === 关键配置文件 ===
 
-- ur7e_isaacsim.yml: 机器人基座位置、初始关节角度
-- ur7e_reacher_isaacsim.yml: MPC 参数、代价函数权重、碰撞检测配置
-- collision_primitives_3d.yml: 场景中的障碍物定义
+- gym/ur7e_isaacsim.yml: 机器人基座位置、初始关节角度
+- mpc/ur7e_reacher_isaacsim.yml: MPC 参数、代价函数权重、碰撞检测配置
+- gym/collision_primitives_3d.yml: 场景中的障碍物定义
 - robot/ur7e.yml: 机器人碰撞球模型定义
 
-Author: Auto-generated
-Date: 2024
+Author: wqj
+Date: 2025
 """
 
 import argparse
@@ -415,6 +415,15 @@ class IsaacSimWorld:
                 position = self.w_T_r.transform_point(position)
                 
             # 创建红色可视化球体
+            '''
+            VisualSphere/VisualCuboid 构造函数内部：
+            ┌─────────────────────────────────┐
+            │ 1. 在 USD Stage 创建 prim   ← 障碍物出现在画面中！
+            │ 2. 设置几何体属性（半径/尺寸）      │
+            │ 3. 设置材质颜色                   │
+            │ 4. 返回 Python 对象              │
+            └─────────────────────────────────┘
+            '''
             sphere = VisualSphere(
                 prim_path=f"/World/obstacles/{name}",  # USD 场景路径
                 name=name,
@@ -659,11 +668,11 @@ def mpc_robot_interactive(args):
     
     ur7e_prim_path = "/World/UR7e"  # 机器人在场景中的路径
     
-    # 将机器人 USD 添加到场景
+    # 将机器人 USD 添加到场景，把模型放进场景！
     print("添加机器人到场景...")
     add_reference_to_stage(usd_path=ur7e_usd_path, prim_path=ur7e_prim_path)
     
-    # 创建 Robot 对象并添加到场景
+    # 创建 Robot 对象并添加到场景，给模型装上遥控器（Python API）
     print("创建 Robot 对象...")
     ur7e_robot = world.scene.add(
         Robot(

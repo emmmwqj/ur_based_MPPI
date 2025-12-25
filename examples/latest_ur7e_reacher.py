@@ -958,32 +958,25 @@ if __name__ == '__main__':
     from isaacsim import SimulationApp
     
     # SimulationApp configuration based on mode
+    # Note: Only use well-tested parameters to avoid crashes
     if args.fast:
-        # Fast startup mode - lower quality, faster loading
-        print("Starting Isaac Sim in FAST mode (lower quality, faster startup)...")
+        # Fast startup mode - minimal configuration for speed
+        print("Starting Isaac Sim in FAST mode (faster startup)...")
         simulation_config = {
             "headless": args.headless,
             "width": 1280,
             "height": 720,
-            "anti_aliasing": 0,  # Disable anti-aliasing
-            "renderer": "RayTracedLighting",  # Faster renderer
-            "multi_gpu": False,
-            "sync_loads": True,
         }
     elif args.hq:
-        # High quality mode - best visuals, slower startup
-        print("Starting Isaac Sim in HIGH QUALITY mode (best visuals, slower startup)...")
+        # High quality mode - higher resolution
+        print("Starting Isaac Sim in HIGH QUALITY mode (higher resolution)...")
         simulation_config = {
             "headless": args.headless,
             "width": 1920,
             "height": 1080,
-            "anti_aliasing": 1,  # Enable anti-aliasing
-            "renderer": "PathTracing",  # Best quality renderer
-            "multi_gpu": False,
-            "sync_loads": True,
         }
     else:
-        # Default mode - balanced
+        # Default mode
         print("Starting Isaac Sim in DEFAULT mode...")
         simulation_config = {
             "headless": args.headless,
