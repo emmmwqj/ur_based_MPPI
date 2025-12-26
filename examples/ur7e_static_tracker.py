@@ -31,12 +31,8 @@ Date: 2024
 import argparse
 import copy
 import time
-import traceback
 import yaml
-
 import numpy as np
-import torch
-from scipy.spatial.transform import Rotation
 
 # Global variable for simulation app
 simulation_app = None
@@ -142,6 +138,7 @@ class Transform:
         
     def inverse(self):
         """Return inverse transform"""
+        from scipy.spatial.transform import Rotation
         rot = Rotation.from_quat(self.r)  # scipy uses xyzw
         rot_inv = rot.inv()
         p_inv = -rot_inv.apply(self.p)
@@ -149,6 +146,7 @@ class Transform:
     
     def __mul__(self, other):
         """Compose transforms"""
+        from scipy.spatial.transform import Rotation
         rot1 = Rotation.from_quat(self.r)
         rot2 = Rotation.from_quat(other.r)
         
@@ -159,6 +157,7 @@ class Transform:
     
     def transform_point(self, point):
         """Transform a point from local to world frame"""
+        from scipy.spatial.transform import Rotation
         rot = Rotation.from_quat(self.r)
         return rot.apply(point) + self.p
 
@@ -171,8 +170,6 @@ class IsaacSimWorld:
         self.world_params = world_params
         self.w_T_r = w_T_r
         self.objects = {}
-        self.articulations = {}  # For storing articulated objects like movable_mug
-        self._last_marker_pos = {}  # Cache last marker positions to avoid unnecessary USD updates
         
     def spawn_primitives(self):
         """Spawn collision primitives from world params"""
@@ -253,17 +250,10 @@ class IsaacSimWorld:
         return marker
         
     def update_marker_pose(self, name, position, orientation=None):
-        """Update marker position - only if position changed significantly"""
+        """Update marker position"""
         if name in self.objects:
-            position = np.array(position)
-            # Check if position changed significantly (>1mm) to avoid unnecessary USD updates
-            if name in self._last_marker_pos:
-                pos_diff = np.linalg.norm(position - self._last_marker_pos[name])
-                if pos_diff < 0.001:  # Less than 1mm, skip update
-                    return
-            self._last_marker_pos[name] = position.copy()
             marker = self.objects[name]
-            marker.set_world_pose(position=position)
+            marker.set_world_pose(position=np.array(position))
             
     def get_pose(self, name):
         """Get pose of an object"""
@@ -274,289 +264,6 @@ class IsaacSimWorld:
             rot_xyzw = np.array([rot_wxyz[1], rot_wxyz[2], rot_wxyz[3], rot_wxyz[0]])
             return Transform(p=pos, r=rot_xyzw)
         return None
-    
-    def spawn_draggable_target(self, name, usd_path, position, orientation_xyzw=None, color=None):
-        """
-        Spawn a draggable target object from USD file.
-        This is used as a visual target marker that can be dragged to set target position.
-        
-        NOTE: We use a static XFormPrim instead of Robot/Articulation to avoid
-        physics simulation affecting the target position (e.g., gravity making it fall).
-        
-        Args:
-            name: Name of the object
-            usd_path: Path to USD file (use mug.usd, not movable_mug.usd)
-            position: Initial position [x, y, z]
-            orientation_xyzw: Orientation quaternion [x, y, z, w]
-            color: RGB color array
-        """
-        from isaacsim.core.utils.stage import add_reference_to_stage, get_current_stage
-        from pxr import UsdGeom, Gf, UsdPhysics
-        
-        prim_path = f"/World/targets/{name}"
-        
-        # Add USD to stage
-        add_reference_to_stage(usd_path=usd_path, prim_path=prim_path)
-        
-        # Convert orientation to wxyz for Isaac Sim
-        if orientation_xyzw is None:
-            orientation_wxyz = np.array([1.0, 0.0, 0.0, 0.0])
-        else:
-            orientation_wxyz = np.array([
-                orientation_xyzw[3], orientation_xyzw[0],
-                orientation_xyzw[1], orientation_xyzw[2]
-            ])
-        
-        # Create a simple XForm wrapper for the target (no physics simulation)
-        class DraggableTargetWrapper:
-            """Wrapper for draggable target that reads world transform directly from USD"""
-            def __init__(self, stage, prim_path):
-                self.prim_path = prim_path
-                self._stage = stage
-                self._prim = stage.GetPrimAtPath(prim_path)
-                self._xform = UsdGeom.Xformable(self._prim)
-                
-                # Disable physics on this prim to prevent it from falling
-                self._disable_physics()
-                
-            def _disable_physics(self):
-                """Disable physics simulation on this prim and all children"""
-                try:
-                    # Remove rigid body physics if present
-                    if self._prim.HasAPI(UsdPhysics.RigidBodyAPI):
-                        self._prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
-                    
-                    # Disable collision
-                    if self._prim.HasAPI(UsdPhysics.CollisionAPI):
-                        self._prim.RemoveAPI(UsdPhysics.CollisionAPI)
-                    
-                    # Also check children
-                    for child in self._prim.GetAllChildren():
-                        if child.HasAPI(UsdPhysics.RigidBodyAPI):
-                            child.RemoveAPI(UsdPhysics.RigidBodyAPI)
-                        if child.HasAPI(UsdPhysics.CollisionAPI):
-                            child.RemoveAPI(UsdPhysics.CollisionAPI)
-                except Exception as e:
-                    print(f"Warning: Could not disable physics: {e}")
-                
-            def set_world_pose(self, position=None, orientation=None):
-                """Set the world pose of the prim"""
-                if position is not None:
-                    translate_op = None
-                    for op in self._xform.GetOrderedXformOps():
-                        if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                            translate_op = op
-                            break
-                    if translate_op is None:
-                        translate_op = self._xform.AddTranslateOp()
-                    translate_op.Set(Gf.Vec3d(float(position[0]), float(position[1]), float(position[2])))
-                
-                if orientation is not None:
-                    orient_op = None
-                    for op in self._xform.GetOrderedXformOps():
-                        if op.GetOpType() == UsdGeom.XformOp.TypeOrient:
-                            orient_op = op
-                            break
-                    if orient_op is None:
-                        orient_op = self._xform.AddOrientOp()
-                    # orientation is wxyz
-                    orient_op.Set(Gf.Quatd(float(orientation[0]), float(orientation[1]), 
-                                           float(orientation[2]), float(orientation[3])))
-            
-            def get_world_pose(self):
-                """Get the world pose of the prim by reading USD transform"""
-                xform_cache = UsdGeom.XformCache()
-                world_transform = xform_cache.GetLocalToWorldTransform(self._prim)
-                translation = world_transform.ExtractTranslation()
-                rotation = world_transform.ExtractRotationQuat()
-                pos = np.array([translation[0], translation[1], translation[2]])
-                # Return as wxyz
-                rot = np.array([rotation.GetReal(), rotation.GetImaginary()[0], 
-                               rotation.GetImaginary()[1], rotation.GetImaginary()[2]])
-                return pos, rot
-        
-        stage = get_current_stage()
-        target_wrapper = DraggableTargetWrapper(stage, prim_path)
-        target_wrapper.set_world_pose(position=np.array(position), orientation=orientation_wxyz)
-        
-        # Store in objects dict (not articulations) since this is not a simulated articulation
-        self.objects[name] = target_wrapper
-        
-        # Set color if provided
-        if color is not None:
-            self._set_prim_color(prim_path, color)
-        
-        print(f"Spawned draggable target '{name}' at {position} (physics disabled)")
-        return target_wrapper
-    
-    def spawn_ee_marker_usd(self, name, usd_path, position, orientation_xyzw=None, color=None):
-        """
-        Spawn the end-effector marker from USD file.
-        This shows the current EE position (green mug).
-        
-        Args:
-            name: Name of the object
-            usd_path: Path to USD file
-            position: Initial position [x, y, z]
-            orientation_xyzw: Orientation quaternion [x, y, z, w]
-            color: RGB color array
-        """
-        from isaacsim.core.utils.stage import add_reference_to_stage
-        from pxr import UsdGeom, Gf
-        
-        prim_path = f"/World/markers/{name}"
-        
-        # Add USD to stage
-        add_reference_to_stage(usd_path=usd_path, prim_path=prim_path)
-        
-        # Convert orientation to wxyz for Isaac Sim
-        if orientation_xyzw is None:
-            orientation_wxyz = np.array([1.0, 0.0, 0.0, 0.0])
-        else:
-            orientation_wxyz = np.array([
-                orientation_xyzw[3], orientation_xyzw[0],
-                orientation_xyzw[1], orientation_xyzw[2]
-            ])
-        
-        # Use a simple wrapper class to control the prim transform
-        class SimpleXFormWrapper:
-            """Simple wrapper for controlling USD prim transforms"""
-            def __init__(self, stage, prim_path):
-                self.prim_path = prim_path
-                self._stage = stage
-                self._prim = stage.GetPrimAtPath(prim_path)
-                self._xform = UsdGeom.Xformable(self._prim)
-                
-            def set_world_pose(self, position=None, orientation=None):
-                """Set the world pose of the prim"""
-                if position is not None:
-                    # Set translation
-                    translate_op = None
-                    for op in self._xform.GetOrderedXformOps():
-                        if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
-                            translate_op = op
-                            break
-                    if translate_op is None:
-                        translate_op = self._xform.AddTranslateOp()
-                    translate_op.Set(Gf.Vec3d(float(position[0]), float(position[1]), float(position[2])))
-                
-                if orientation is not None:
-                    # Set rotation (orientation is wxyz)
-                    orient_op = None
-                    for op in self._xform.GetOrderedXformOps():
-                        if op.GetOpType() == UsdGeom.XformOp.TypeOrient:
-                            orient_op = op
-                            break
-                    if orient_op is None:
-                        orient_op = self._xform.AddOrientOp()
-                    orient_op.Set(Gf.Quatd(float(orientation[0]), float(orientation[1]), 
-                                           float(orientation[2]), float(orientation[3])))
-            
-            def get_world_pose(self):
-                """Get the world pose of the prim"""
-                xform_cache = UsdGeom.XformCache()
-                world_transform = xform_cache.GetLocalToWorldTransform(self._prim)
-                translation = world_transform.ExtractTranslation()
-                rotation = world_transform.ExtractRotationQuat()
-                pos = np.array([translation[0], translation[1], translation[2]])
-                # Return as wxyz
-                rot = np.array([rotation.GetReal(), rotation.GetImaginary()[0], 
-                               rotation.GetImaginary()[1], rotation.GetImaginary()[2]])
-                return pos, rot
-        
-        from isaacsim.core.utils.stage import get_current_stage
-        stage = get_current_stage()
-        
-        ee_marker = SimpleXFormWrapper(stage, prim_path)
-        ee_marker.set_world_pose(position=np.array(position), orientation=orientation_wxyz)
-        
-        self.objects[name] = ee_marker
-        
-        # Set color if provided
-        if color is not None:
-            self._set_prim_color(prim_path, color)
-        
-        print(f"Spawned EE marker '{name}' at {position}")
-        return ee_marker
-    
-    def _set_prim_color(self, prim_path, color):
-        """Set color of a prim and its children"""
-        try:
-            from pxr import UsdShade, Sdf, Gf, UsdGeom
-            from isaacsim.core.utils.stage import get_current_stage
-            
-            stage = get_current_stage()
-            
-            # Find all mesh prims under this path
-            prim = stage.GetPrimAtPath(prim_path)
-            if not prim.IsValid():
-                return
-            
-            # Traverse all children to find meshes
-            for child_prim in prim.GetAllChildren():
-                if child_prim.GetTypeName() == "Mesh":
-                    # Try to set displayColor
-                    mesh = UsdGeom.Mesh(child_prim)
-                    if mesh:
-                        color_attr = mesh.GetDisplayColorAttr()
-                        if color_attr:
-                            color_attr.Set([Gf.Vec3f(float(color[0]), float(color[1]), float(color[2]))])
-        except Exception as e:
-            print(f"Warning: Could not set color for {prim_path}: {e}")
-    
-    def get_target_pose(self, name):
-        """
-        Get pose of a target object (draggable target or static marker).
-        Works with objects stored in self.objects that have get_world_pose() method.
-        
-        Args:
-            name: Name of the target object
-            
-        Returns:
-            Transform object with position and orientation (orientation in xyzw format)
-        """
-        # First check in objects (for draggable targets and markers)
-        if name in self.objects:
-            try:
-                obj = self.objects[name]
-                pos, rot_wxyz = obj.get_world_pose()
-                # Convert from wxyz to xyzw format
-                rot_xyzw = np.array([rot_wxyz[1], rot_wxyz[2], rot_wxyz[3], rot_wxyz[0]])
-                return Transform(p=pos, r=rot_xyzw)
-            except Exception as e:
-                print(f"Error getting target pose for {name}: {e}")
-                return None
-        
-        # Fallback: check articulations (for backward compatibility)
-        if name in self.articulations:
-            try:
-                robot = self.articulations[name]
-                pos, rot_wxyz = robot.get_world_pose()
-                rot_xyzw = np.array([rot_wxyz[1], rot_wxyz[2], rot_wxyz[3], rot_wxyz[0]])
-                return Transform(p=pos, r=rot_xyzw)
-            except Exception as e:
-                print(f"Error getting articulation pose for {name}: {e}")
-                return None
-        
-        return None
-    
-    # Keep old method name for backward compatibility
-    def get_articulation_ee_pose(self, name, link_index=6):
-        """Deprecated: Use get_target_pose instead. Kept for backward compatibility."""
-        return self.get_target_pose(name)
-    
-    def update_ee_marker_pose(self, name, position, orientation_xyzw=None):
-        """Update EE marker position and optionally orientation"""
-        if name in self.objects:
-            marker = self.objects[name]
-            if orientation_xyzw is not None:
-                orientation_wxyz = np.array([
-                    orientation_xyzw[3], orientation_xyzw[0],
-                    orientation_xyzw[1], orientation_xyzw[2]
-                ])
-                marker.set_world_pose(position=np.array(position), orientation=orientation_wxyz)
-            else:
-                marker.set_world_pose(position=np.array(position))
 
 
 class DebugDrawHelper:
@@ -686,23 +393,13 @@ class UsdCurveDrawer:
         self.curve_count = 0
         self._stage = None
         self._initialized = False
-        self._curves_objects = {}  # Store curve objects for reuse
-        # Cache pxr modules to avoid repeated imports
-        self._Vt = None
-        self._Gf = None
-        self._UsdGeom = None
-        self._scope_created = False
         
     def initialize(self):
-        """Initialize USD stage reference and cache imports"""
+        """Initialize USD stage reference"""
         try:
             from pxr import Usd, UsdGeom, Gf, Vt
             from isaacsim.core.utils.stage import get_current_stage
             self._stage = get_current_stage()
-            # Cache imports
-            self._Vt = Vt
-            self._Gf = Gf
-            self._UsdGeom = UsdGeom
             self._initialized = True
             print("USD Curve drawer initialized successfully")
             return True
@@ -712,85 +409,86 @@ class UsdCurveDrawer:
             return False
             
     def clear_curves(self):
-        """Hide all trajectory curves (don't delete them for performance)"""
-        if not self._initialized or self._UsdGeom is None:
-            return
+        """Remove all trajectory curves from scene"""
         try:
-            for traj_id, curve_obj in self._curves_objects.items():
-                if curve_obj is not None:
-                    try:
-                        curve_obj.GetVisibilityAttr().Set(self._UsdGeom.Tokens.invisible)
-                    except:
-                        pass
-        except:
+            from pxr import Usd
+            if self._stage is None:
+                return
+            # Delete the trajectories prim and all children
+            traj_prim = self._stage.GetPrimAtPath("/World/trajectories")
+            if traj_prim.IsValid():
+                self._stage.RemovePrim("/World/trajectories")
+            self.curves = {}
+            self.curve_count = 0
+        except Exception as e:
             pass
             
     def draw_trajectory(self, points, color=(0.0, 1.0, 0.0), traj_id=0):
-        """Draw trajectory using USD BasisCurves - reuses existing curves for performance
+        """Draw trajectory using USD BasisCurves
         
         Args:
             points: numpy array of shape (N, 3)
             color: RGB tuple (0-1 range)
             traj_id: unique identifier for this trajectory
         """
-        if self._stage is None or not self._initialized:
-            return
-            
-        if len(points) < 2:
-            return
-        
         try:
-            Vt = self._Vt
-            Gf = self._Gf
-            UsdGeom = self._UsdGeom
+            from pxr import Usd, UsdGeom, Gf, Vt, UsdShade, Sdf
+            import numpy as np
             
-            # Create trajectories scope only once
-            if not self._scope_created:
-                traj_scope_path = "/World/trajectories"
-                traj_scope = self._stage.GetPrimAtPath(traj_scope_path)
-                if not traj_scope.IsValid():
-                    UsdGeom.Scope.Define(self._stage, traj_scope_path)
-                self._scope_created = True
-            
-            curve_path = "/World/trajectories/traj_0"  # Use fixed path for single trajectory
-            
-            # Check if curve already exists in cache
-            if traj_id in self._curves_objects and self._curves_objects[traj_id] is not None:
-                # Reuse existing curve - just update points (fastest path)
-                curves = self._curves_objects[traj_id]
-                vt_points = Vt.Vec3fArray([Gf.Vec3f(float(p[0]), float(p[1]), float(p[2])) for p in points])
-                curves.GetPointsAttr().Set(vt_points)
-                curves.GetCurveVertexCountsAttr().Set(Vt.IntArray([len(points)]))
-                curves.GetWidthsAttr().Set(Vt.FloatArray([0.003] * len(points)))
-                curves.GetVisibilityAttr().Set(UsdGeom.Tokens.inherited)
+            if self._stage is None or not self._initialized:
+                return
+                
+            if len(points) < 2:
                 return
             
-            # First time: Create new curve
+            # Create or get trajectories scope
+            traj_scope_path = "/World/trajectories"
+            traj_scope = self._stage.GetPrimAtPath(traj_scope_path)
+            if not traj_scope.IsValid():
+                UsdGeom.Scope.Define(self._stage, traj_scope_path)
+            
+            # Create curve path
+            curve_path = f"{traj_scope_path}/traj_{traj_id}"
+            
+            # Remove existing curve if present
             existing_prim = self._stage.GetPrimAtPath(curve_path)
             if existing_prim.IsValid():
-                curves = UsdGeom.BasisCurves.Get(self._stage, curve_path)
-            else:
-                curves = UsdGeom.BasisCurves.Define(self._stage, curve_path)
-                curves.GetTypeAttr().Set(UsdGeom.Tokens.linear)
-                curves.GetWrapAttr().Set(UsdGeom.Tokens.nonperiodic)
-                curves.GetPurposeAttr().Set(UsdGeom.Tokens.default_)
-                # Set color once
-                color_primvar = curves.GetDisplayColorPrimvar()
-                color_primvar.Set(Vt.Vec3fArray([Gf.Vec3f(float(color[0]), float(color[1]), float(color[2]))]))
+                self._stage.RemovePrim(curve_path)
             
-            # Set points
+            # Create BasisCurves
+            curves = UsdGeom.BasisCurves.Define(self._stage, curve_path)
+            
+            # Set curve type to linear
+            curves.GetTypeAttr().Set(UsdGeom.Tokens.linear)
+            curves.GetWrapAttr().Set(UsdGeom.Tokens.nonperiodic)
+            
+            # Convert points to Vt.Vec3fArray
             vt_points = Vt.Vec3fArray([Gf.Vec3f(float(p[0]), float(p[1]), float(p[2])) for p in points])
             curves.GetPointsAttr().Set(vt_points)
+            
+            # Set curve vertex counts (one curve with all points)
             curves.GetCurveVertexCountsAttr().Set(Vt.IntArray([len(points)]))
-            curves.GetWidthsAttr().Set(Vt.FloatArray([0.003] * len(points)))
+            
+            # Set widths (line thickness)
+            line_width = 0.003  # 3mm width
+            curves.GetWidthsAttr().Set(Vt.FloatArray([line_width] * len(points)))
+            
+            # Set color using displayColor primvar
+            color_primvar = curves.GetDisplayColorPrimvar()
+            color_primvar.Set(Vt.Vec3fArray([Gf.Vec3f(float(color[0]), float(color[1]), float(color[2]))]))
+            
+            # Make it visible
             curves.GetVisibilityAttr().Set(UsdGeom.Tokens.inherited)
             
-            # Store for reuse
-            self._curves_objects[traj_id] = curves
+            # Set purpose to render (not guide or proxy)
+            curves.GetPurposeAttr().Set(UsdGeom.Tokens.default_)
+            
             self.curves[traj_id] = curve_path
             
         except Exception as e:
-            pass  # Silently ignore errors for performance
+            import traceback
+            print(f"[DEBUG] USD Curve drawing error for traj_{traj_id}: {e}")
+            traceback.print_exc()
 
 
 def mpc_robot_interactive(args):
@@ -817,11 +515,14 @@ def mpc_robot_interactive(args):
     print("=" * 50)
     
     # Initialize trajectory visualization
+    # Use USD Curves directly since Debug Draw is unreliable
+    print("Initializing trajectory visualization with USD Curves...")
+    
     usd_curve_drawer = None
-    use_usd_curves = True  # Use USD curves for trajectory
+    use_usd_curves = True  # Force use USD curves
     
     vis_ee_target = True
-    vis_mpc_trajectory = True  # Enable trajectory visualization
+    vis_mpc_trajectory = True  # Enable MPC trajectory visualization
     robot_file = args.robot + '_isaacsim.yml'  # Use Isaac Sim specific config
     task_file = args.robot + '_reacher_isaacsim.yml'  # Use Isaac Sim specific task config
     world_file = 'collision_primitives_3d.yml'
@@ -926,11 +627,10 @@ def mpc_robot_interactive(args):
     stage = get_current_stage()
     
     # Set joint drive stiffness and damping for position control
-    # NOTE: These values work with the original working version
     joint_drive_stiffness = 400.0
     joint_drive_damping = 40.0
     
-    # Iterate over all prims to find joint drives (original working method)
+    # Iterate over all prims to find joint drives
     for prim in stage.Traverse():
         if prim.HasAPI(UsdPhysics.DriveAPI):
             drive = UsdPhysics.DriveAPI.Get(prim, "angular")
@@ -1057,7 +757,7 @@ def mpc_robot_interactive(args):
     print(f"Final robot position: {robot_actual_pos}")
     print(f"Final robot orientation (wxyz): {robot_actual_ori}")
     
-    # Create target markers after world reset (use simple sphere markers like original)
+    # Create target markers after world reset
     if vis_ee_target:
         print("Creating target markers...")
         # Transform goal to world frame
@@ -1121,35 +821,6 @@ def mpc_robot_interactive(args):
                 
             t_step += sim_dt
             
-            # ============================================================
-            # TARGET TRACKING: Check if target marker has been moved
-            # ============================================================
-            if vis_ee_target:
-                # Get current pose of the target marker (red sphere)
-                target_pose = world_instance.get_pose("ee_target")
-                
-                if target_pose is not None:
-                    # Transform from world frame to robot frame
-                    target_pos_world = target_pose.p
-                    
-                    # Inverse transform to get position in robot frame
-                    target_pos_robot = w_T_r.inverse().transform_point(target_pos_world)
-                    
-                    # Check if target has moved significantly (more than 1mm)
-                    pos_diff = np.linalg.norm(g_pos - target_pos_robot)
-                    
-                    if pos_diff > 0.001:
-                        # Update goal position
-                        g_pos[0] = target_pos_robot[0]
-                        g_pos[1] = target_pos_robot[1]
-                        g_pos[2] = target_pos_robot[2]
-                        
-                        # Update MPC controller with new goal
-                        mpc_control.update_params(goal_ee_pos=g_pos, goal_ee_quat=g_q)
-                        
-                        if i % 20 == 0:
-                            print(f"[TARGET] Updated goal: pos={np.round(g_pos, 3)}")
-            
             # Get current robot state
             current_robot_state = robot_sim.get_state()
             
@@ -1185,7 +856,7 @@ def mpc_robot_interactive(args):
             e_pos = np.ravel(pose_state['ee_pos_seq'].cpu().numpy())
             e_quat = np.ravel(pose_state['ee_quat_seq'].cpu().numpy())
             
-            # Update current EE marker (every frame for smooth display)
+            # Update current EE marker
             if vis_ee_target:
                 # Transform to world frame
                 ee_pos_world = w_T_r.transform_point(e_pos)
@@ -1193,28 +864,58 @@ def mpc_robot_interactive(args):
             
             # Draw MPC predicted trajectories
             if vis_mpc_trajectory and use_usd_curves and usd_curve_drawer is not None:
+                # Clear previous curves
+                usd_curve_drawer.clear_curves()
+                
                 # Get top trajectories from MPC
                 try:
                     top_trajs = mpc_control.top_trajs
                     if top_trajs is not None:
                         top_trajs = top_trajs.cpu().float()
-                        n_p, n_t = top_trajs.shape[0], top_trajs.shape[1]
+                        n_p, n_t = top_trajs.shape[0], top_trajs.shape[1]  # n_particles, n_timesteps
+                        
+                        # Debug: print trajectory info every 50 iterations
+                        if i % 50 == 0:
+                            print(f"[DEBUG] top_trajs shape: {top_trajs.shape}, n_particles={n_p}, n_timesteps={n_t}")
+                            print(f"[DEBUG] top_trajs[0] first point: {top_trajs[0, 0, :].numpy()}")
+                            print(f"[DEBUG] top_trajs[0] last point: {top_trajs[0, -1, :].numpy()}")
                         
                         # Transform trajectories to world frame
                         w_pts = w_robot_coord.transform_point(top_trajs.view(n_p * n_t, 3)).view(n_p, n_t, 3)
                         top_trajs_world = w_pts.cpu().numpy()
                         
-                        # Draw only the best trajectory (index 0)
-                        pts = top_trajs_world[0, :, :]
-                        color = (1.0, 0.0, 0.0)  # Red for best trajectory
-                        usd_curve_drawer.draw_trajectory(pts, color=color, traj_id=0)
+                        # Debug: print transformed trajectory info
+                        if i % 50 == 0:
+                            print(f"[DEBUG] top_trajs_world shape: {top_trajs_world.shape}")
+                            print(f"[DEBUG] top_trajs_world[0] first point: {top_trajs_world[0, 0, :]}")
+                            print(f"[DEBUG] top_trajs_world[0] last point: {top_trajs_world[0, -1, :]}")
+                            print(f"[DEBUG] USD curve drawer initialized: {usd_curve_drawer._initialized}")
+                        
+                        # Draw only the best trajectory (index 0) in green
+                        num_trajs_to_draw = 1  # Only draw the best trajectory
+                        if i % 50 == 0:
+                            print(f"[DEBUG] Drawing best trajectory with USD Curves...")
                             
+                        for k in range(num_trajs_to_draw):
+                            pts = top_trajs_world[k, :, :]
+                            color = (1.0, 1.0, 1.0)  # White for best trajectory
+                            
+                            usd_curve_drawer.draw_trajectory(pts, color=color, traj_id=k)
+                            
+                        if i % 50 == 0:
+                            print(f"[DEBUG] Trajectory drawing completed for iteration {i}")
+                            print(f"[DEBUG] Created curves: {list(usd_curve_drawer.curves.keys())}")
+                    else:
+                        if i % 50 == 0:
+                            print(f"[DEBUG] top_trajs is None at iteration {i}")
                 except Exception as traj_e:
-                    if i % 100 == 0:
+                    if i % 50 == 0:
                         print(f"[DEBUG] Trajectory drawing error: {traj_e}")
+                        import traceback
+                        traceback.print_exc()
             
-            # Print status every 50 iterations (reduced frequency for better performance)
-            if i % 50 == 0:
+            # Print status every 10 iterations
+            if i % 10 == 0:
                 print(f"[{i}] Error: {['{:.3f}'.format(x) for x in ee_error]}, "
                       f"opt_dt: {mpc_control.opt_dt:.3f}, mpc_dt: {mpc_control.mpc_dt:.3f}")
             
@@ -1228,6 +929,7 @@ def mpc_robot_interactive(args):
             break
         except Exception as e:
             print(f"Error in main loop: {e}")
+            import traceback
             traceback.print_exc()
             # Don't break on first error, try to continue
             i += 1
@@ -1282,7 +984,9 @@ if __name__ == '__main__':
     
     simulation_app = SimulationApp(simulation_config)
     
-    # Configure torch settings (torch already imported at top)
+    # Now import Isaac Sim modules after SimulationApp is created
+    import torch
+    # Only set start method if not already set
     try:
         torch.multiprocessing.set_start_method('spawn', force=True)
     except RuntimeError:
@@ -1292,7 +996,7 @@ if __name__ == '__main__':
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     
-    # Isaac Sim modules must be imported AFTER SimulationApp is created
+    # Isaac Sim 5.1 Core API imports (based on official docs)
     from isaacsim.core.api.world import World
     from isaacsim.core.api.objects import VisualCuboid, VisualSphere
     from isaacsim.core.api.robots import Robot
@@ -1311,5 +1015,6 @@ if __name__ == '__main__':
         mpc_robot_interactive(args)
     except Exception as e:
         print(f"Fatal error: {e}")
+        import traceback
         traceback.print_exc()
         simulation_app.close()
