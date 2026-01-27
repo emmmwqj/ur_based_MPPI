@@ -8,19 +8,24 @@ DDS 中间件负责跨 Python 版本的通信。
 
 发布话题:
     /joint_states (sensor_msgs/JointState) - 机器人关节状态
+    /target_pose (geometry_msgs/PoseStamped) - 目标位置（红球拖动时）
     
 订阅话题:
     /joint_command (sensor_msgs/JointState) - 关节位置指令
+    /ee_pose (geometry_msgs/PoseStamped) - 末端位置（用于更新绿球）
+
+可视化:
+    - 红色球: 目标位置（可拖动）
+    - 绿色球: 末端位置（自动更新）
 
 用法:
     # 终端 1: 运行本脚本 (不要 source 系统 ROS2!)
-    cd ~/storm/examples
+    cd ~/storm/examples/SIL
     ./run_ur7e_ros2_sim.sh
     
     # 终端 2: 运行 MPC 控制器 (使用系统 ROS2)
-    conda activate storm_py310
-    source /opt/ros/humble/setup.bash
-    python3 ur7e_mpc_ros2.py
+    cd ~/storm/examples/SIL
+    ./run_ur7e_mpc_ros2.sh
 
 架构说明:
     - Isaac Sim 内置 ROS2 库 (Python 3.11) 通过 OmniGraph 发布关节状态
@@ -71,6 +76,19 @@ ext_manager = omni.kit.app.get_app().get_extension_manager()
 ext_manager.set_extension_enabled_immediate("isaacsim.ros2.bridge", True)
 print("已启用 isaacsim.ros2.bridge")
 
+# ROS2 消息类型 (用于自定义发布)
+try:
+    from std_msgs.msg import Header
+    from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
+    import rclpy
+    from rclpy.node import Node
+    from rclpy.qos import QoSProfile
+    ROS2_AVAILABLE = True
+    print("ROS2 Python 库可用")
+except ImportError:
+    ROS2_AVAILABLE = False
+    print("警告: ROS2 Python 库不可用，目标/末端位置话题将不工作")
+
 # STORM 路径
 sys.path.insert(0, '/home/wqj/storm')
 from storm_kit.util_file import get_gym_configs_path, join_path, get_assets_path
@@ -79,6 +97,19 @@ from storm_kit.util_file import get_gym_configs_path, join_path, get_assets_path
 # ============================================================================
 # 辅助函数
 # ============================================================================
+
+def transform_point(position, orientation_xyzw, point):
+    """将点从机器人坐标系变换到世界坐标系"""
+    from scipy.spatial.transform import Rotation
+    rot = Rotation.from_quat(orientation_xyzw)
+    return rot.apply(point) + position
+
+def inv_transform_point(position, orientation_xyzw, point):
+    """将点从世界坐标系变换到机器人坐标系"""
+    from scipy.spatial.transform import Rotation
+    rot = Rotation.from_quat(orientation_xyzw).inv()
+    return rot.apply(point - position)
+
 
 def find_articulation_root(robot_prim_path: str):
     """
@@ -140,6 +171,129 @@ def find_articulation_root(robot_prim_path: str):
     
     print(f"  警告: 未找到 ArticulationRoot，使用原路径: {robot_prim_path}")
     return robot_prim_path
+
+
+# ============================================================================
+# ROS2 目标/末端位置通信节点
+# ============================================================================
+
+class MarkerROS2Node:
+    """
+    处理目标球和末端球位置的 ROS2 通信
+    
+    发布:
+        /target_pose - 当红色目标球被拖动时发布新位置
+    
+    订阅:
+        /ee_pose - 从 MPC 接收末端位置，更新绿球
+        /initial_target_pose - 从 MPC 接收初始目标位置，更新红球
+    """
+    
+    def __init__(self):
+        self.node = None
+        self.target_pub = None
+        self.ee_sub = None
+        self.initial_target_sub = None
+        self.ee_pose_received = None
+        self.initial_target_received = None
+        self._initialized = False
+        
+    def init(self):
+        """初始化 ROS2 节点"""
+        if not ROS2_AVAILABLE:
+            print("警告: ROS2 不可用，标记位置话题将不工作")
+            return False
+            
+        try:
+            if not rclpy.ok():
+                rclpy.init()
+            
+            self.node = rclpy.create_node('isaac_sim_markers')
+            qos = QoSProfile(depth=10)
+            
+            # 发布目标位置
+            self.target_pub = self.node.create_publisher(
+                PoseStamped, '/target_pose', qos
+            )
+            
+            # 订阅末端位置
+            self.ee_sub = self.node.create_subscription(
+                PoseStamped, '/ee_pose', self._ee_callback, qos
+            )
+            
+            # 订阅初始目标位置 (从 MPC 端设置红球位置)
+            self.initial_target_sub = self.node.create_subscription(
+                PoseStamped, '/initial_target_pose', self._initial_target_callback, qos
+            )
+            
+            self._initialized = True
+            print("  ROS2 标记节点已初始化")
+            print("    发布: /target_pose (目标位置)")
+            print("    订阅: /ee_pose (末端位置)")
+            print("    订阅: /initial_target_pose (初始目标位置)")
+            return True
+            
+        except Exception as e:
+            print(f"警告: ROS2 标记节点初始化失败: {e}")
+            return False
+    
+    def _ee_callback(self, msg: PoseStamped):
+        """末端位置回调"""
+        self.ee_pose_received = np.array([
+            msg.pose.position.x,
+            msg.pose.position.y,
+            msg.pose.position.z
+        ])
+    
+    def _initial_target_callback(self, msg: PoseStamped):
+        """初始目标位置回调 (从 MPC 设置红球位置)"""
+        self.initial_target_received = np.array([
+            msg.pose.position.x,
+            msg.pose.position.y,
+            msg.pose.position.z
+        ])
+    
+    def publish_target(self, position: np.ndarray):
+        """发布目标位置"""
+        if not self._initialized or self.target_pub is None:
+            print(f"警告: ROS2 未初始化，无法发布目标位置")
+            return
+            
+        msg = PoseStamped()
+        msg.header.stamp = self.node.get_clock().now().to_msg()
+        msg.header.frame_id = "world"
+        msg.pose.position.x = float(position[0])
+        msg.pose.position.y = float(position[1])
+        msg.pose.position.z = float(position[2])
+        msg.pose.orientation.w = 1.0
+        
+        self.target_pub.publish(msg)
+        print(f"  已发布目标到 /target_pose: [{position[0]:.3f}, {position[1]:.3f}, {position[2]:.3f}]")
+    
+    def get_ee_pose(self) -> np.ndarray:
+        """获取接收到的末端位置"""
+        return self.ee_pose_received
+    
+    def get_initial_target(self) -> np.ndarray:
+        """获取从 MPC 接收的初始目标位置 (只获取一次)"""
+        if self.initial_target_received is not None:
+            pos = self.initial_target_received.copy()
+            self.initial_target_received = None  # 清除，只用一次
+            return pos
+        return None
+    
+    def spin_once(self):
+        """处理一次 ROS2 回调"""
+        if self._initialized and self.node is not None:
+            rclpy.spin_once(self.node, timeout_sec=0.001)
+    
+    def shutdown(self):
+        """关闭节点"""
+        if self._initialized:
+            try:
+                self.node.destroy_node()
+            except:
+                pass
 
 
 # ============================================================================
@@ -303,14 +457,51 @@ def main():
         orientation=robot_quat_wxyz
     ))
     
-    # 目标标记
+    # ========================================================================
+    # 可视化标记 - 使用 STORM 正运动学计算位置
+    # ========================================================================
+    
+    # 导入 STORM 正运动学
+    import torch
+    from storm_kit.mpc.task.reacher_task import ReacherTask
+    
+    print("\n初始化 STORM 正运动学...")
+    tensor_args = {'device': torch.device('cuda', 0), 'dtype': torch.float32}
+    task_file = 'ur7e_reacher_isaacsim.yml'
+    
+    # 创建 MPC 实例获取正运动学和目标位置
+    mpc_fk = ReacherTask(task_file, robot_file, world_file, tensor_args)
+    
+    # 获取目标末端位置 (与 MPC 控制器一致)
+    goal_state = np.array([0.5, -1.2, 1.2, -1.57, -1.57, 0.0, 0, 0, 0, 0, 0, 0])
+    mpc_fk.update_params(goal_state=goal_state)
+    goal_ee_pos_robot = np.ravel(mpc_fk.controller.rollout_fn.goal_ee_pos.cpu().numpy())
+    goal_ee_world = transform_point(robot_pos, robot_quat_xyzw, goal_ee_pos_robot)
+    print(f"  目标末端位置 (机器人): {goal_ee_pos_robot}")
+    print(f"  目标末端位置 (世界): {goal_ee_world}")
+    
+    # 保存 rollout_fn 用于计算末端位置
+    rollout_fn = mpc_fk.controller.rollout_fn
+    
+    # 目标标记（红色 - 可拖动）
     goal_marker = world.scene.add(VisualSphere(
-        prim_path="/World/goal_marker",
+        prim_path="/World/Markers/Goal",
         name="goal_marker",
-        position=np.array([0.4, 0.0, 0.5]),
+        position=goal_ee_world,
         radius=0.03,
-        color=np.array([0.1, 0.8, 0.1])
+        color=np.array([0.9, 0.1, 0.1])  # 红色
     ))
+    print(f"  目标标记 (红色): {goal_ee_world}")
+    
+    # 末端标记（绿色 - 显示实际末端位置）
+    ee_marker = world.scene.add(VisualSphere(
+        prim_path="/World/Markers/EE",
+        name="ee_marker",
+        position=goal_ee_world,  # 初始放在目标位置附近
+        radius=0.025,
+        color=np.array([0.1, 0.9, 0.1])  # 绿色
+    ))
+    print("  末端标记 (绿色): 通过正运动学实时计算")
     
     # ========================================================================
     # 添加障碍物
@@ -400,6 +591,13 @@ def main():
     ros2_ok = setup_ros2_omnigraph(articulation_path, joint_names)
     
     # ========================================================================
+    # 初始化 ROS2 标记节点
+    # ========================================================================
+    
+    marker_node = MarkerROS2Node()
+    marker_ros2_ok = marker_node.init()
+    
+    # ========================================================================
     # 主循环
     # ========================================================================
     
@@ -411,13 +609,17 @@ def main():
         print("\nROS2 话题 (通过 OmniGraph):")
         print("  发布: /joint_states (sensor_msgs/JointState)")
         print("  订阅: /joint_command (sensor_msgs/JointState)")
-        print("\n在另一个终端验证 (使用系统 ROS2):")
-        print("  source /opt/ros/humble/setup.bash")
-        print("  ros2 topic list")
-        print("  ros2 topic echo /joint_states")
-    else:
-        print("\nROS2 桥接创建失败!")
-        print("请检查 isaacsim.ros2.bridge 扩展是否正常加载")
+    
+    if marker_ros2_ok:
+        print("\nROS2 话题 (标记位置):")
+        print("  发布: /target_pose (目标位置 - 拖动红球更新)")
+        print("  订阅: /ee_pose (末端位置 - 更新绿球)")
+    
+    print("\n提示:")
+    print("  - 拖动红色球来动态设置目标位置")
+    print("  - 绿色球显示机械臂实际末端位置")
+    print("\n在另一个终端启动 MPC 控制器:")
+    print("  cd ~/storm/examples/SIL && ./run_ur7e_mpc_ros2.sh")
     
     print("\n按 Ctrl+C 或关闭窗口退出")
     print("=" * 60 + "\n")
@@ -425,14 +627,43 @@ def main():
     i = 0
     last_print = time.time()
     
+    # 用于检测目标球被拖动
+    current_goal_world = goal_ee_world.copy()
+    
     try:
         while simulation_app.is_running():
             world.step(render=True)
             
+            # 处理 ROS2 回调
+            if marker_ros2_ok:
+                marker_node.spin_once()
+            
+            # --- 使用正运动学计算并更新末端位置 (绿球) ---
+            q = robot.get_joint_positions()[:n_dof]
+            dq = robot.get_joint_velocities()[:n_dof]
+            ddq = np.zeros(n_dof)
+            state_tensor = torch.as_tensor(
+                np.hstack([q, dq, ddq]), **tensor_args
+            ).unsqueeze(0)
+            
+            ee_pose = rollout_fn.get_ee_pose(state_tensor)
+            ee_pos_robot = np.ravel(ee_pose['ee_pos_seq'].cpu().numpy())
+            ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, ee_pos_robot)
+            ee_marker.set_world_pose(position=ee_pos_world)
+            
+            # --- 检测目标球是否被拖动 ---
+            goal_world_new, _ = goal_marker.get_world_pose()
+            if np.linalg.norm(goal_world_new - current_goal_world) > 0.003:  # 移动超过3mm
+                current_goal_world = goal_world_new.copy()
+                # 发布新目标位置
+                if marker_ros2_ok:
+                    marker_node.publish_target(current_goal_world)
+                goal_robot = inv_transform_point(robot_pos, robot_quat_xyzw, current_goal_world)
+                print(f"[目标更新] 世界: {np.round(current_goal_world, 3)}, 机器人: {np.round(goal_robot, 3)}")
+            
             # 每 2 秒打印状态
             if time.time() - last_print > 2.0:
-                q = robot.get_joint_positions()[:n_dof]
-                print(f"[{i:5d}] q: {np.round(q, 2)}")
+                print(f"[{i:5d}] q: {np.round(q, 2)}, ee: {np.round(ee_pos_world, 3)}")
                 last_print = time.time()
             
             i += 1
@@ -441,6 +672,9 @@ def main():
         print("\n收到退出信号...")
     
     print("清理...")
+    if marker_ros2_ok:
+        marker_node.shutdown()
+    mpc_fk.close()
     simulation_app.close()
     print("完成!")
 

@@ -4,6 +4,11 @@
 
 本文档说明如何运行 UR7e 机械臂的 MPC 控制器与 Isaac Sim 仿真的 ROS2 软件在环测试。
 
+**功能特性：**
+- 🔴 **红色目标球**：可在 Isaac Sim 中拖动，实时更新 MPC 目标位置
+- 🟢 **绿色末端球**：显示机械臂实际末端位置
+- 通过 ROS2 话题进行通信，为后续硬件实验做准备
+
 ## 系统要求
 
 - Isaac Sim 5.1.0 (Python 3.11)
@@ -34,8 +39,9 @@ cd ~/storm/examples/SIL
 这会：
 - 设置 Isaac Sim 内置 ROS2 环境变量
 - 使用 Isaac Sim 的 Python 运行仿真
-- 发布 `/joint_states` 话题
-- 订阅 `/joint_command` 话题
+- 创建红色目标球（可拖动）和绿色末端球
+- 发布 `/joint_states` 和 `/target_pose` 话题
+- 订阅 `/joint_command` 和 `/ee_pose` 话题
 
 等待看到 "仿真已启动!" 消息。
 
@@ -123,7 +129,15 @@ ros2 topic echo /joint_command
 |------|------|------|------|
 | `/joint_states` | sensor_msgs/JointState | Isaac Sim → MPC | 当前关节位置和速度 |
 | `/joint_command` | sensor_msgs/JointState | MPC → Isaac Sim | 目标关节位置 |
-| `/mpc_target` | geometry_msgs/PoseStamped | 外部 → MPC | (可选) 动态目标位置 |
+| `/target_pose` | geometry_msgs/PoseStamped | Isaac Sim → MPC | 目标位置（拖动红球时发布） |
+| `/ee_pose` | geometry_msgs/PoseStamped | MPC → Isaac Sim | 末端位置（更新绿球） |
+
+## 动态目标设置
+
+在 Isaac Sim 仿真窗口中：
+1. 选中红色目标球
+2. 使用移动工具拖动到新位置
+3. MPC 控制器会自动接收新目标并让机械臂跟踪
 
 ## 手动运行方式
 

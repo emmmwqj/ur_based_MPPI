@@ -83,12 +83,17 @@ class ROS2RobotInterface(Node):
         - get_joint_positions() -> np.ndarray
         - get_joint_velocities() -> np.ndarray
         - apply_action(position) -> None
+    
+    新增:
+        - 订阅 /target_pose (目标位置)
+        - 发布 /ee_pose (末端位置)
     """
     
     def __init__(self, n_dof=6, 
                  state_topic='/joint_states',
                  cmd_topic='/joint_command',
-                 target_topic='/mpc_target'):
+                 target_topic='/target_pose',
+                 ee_topic='/ee_pose'):
         super().__init__('ur7e_mpc_controller')
         
         self.n_dof = n_dof
@@ -116,7 +121,7 @@ class ROS2RobotInterface(Node):
             JointState, state_topic, self._state_callback, qos
         )
         
-        # 订阅目标位置 (可选 - 用于动态目标)
+        # 订阅目标位置 (来自 Isaac Sim 的红球拖动)
         self._target_sub = self.create_subscription(
             PoseStamped, target_topic, self._target_callback, qos
         )
@@ -126,9 +131,15 @@ class ROS2RobotInterface(Node):
             JointState, cmd_topic, qos_reliable
         )
         
+        # 发布末端位置 (发送到 Isaac Sim 更新绿球)
+        self._ee_pub = self.create_publisher(
+            PoseStamped, ee_topic, qos
+        )
+        
         self.get_logger().info(f'订阅关节状态: {state_topic}')
         self.get_logger().info(f'订阅目标位置: {target_topic}')
         self.get_logger().info(f'发布关节指令: {cmd_topic}')
+        self.get_logger().info(f'发布末端位置: {ee_topic}')
     
     def _state_callback(self, msg: JointState):
         """关节状态回调"""
@@ -153,7 +164,7 @@ class ROS2RobotInterface(Node):
         self._state_count += 1
     
     def _target_callback(self, msg: PoseStamped):
-        """目标位置回调 (可选)"""
+        """目标位置回调 (来自 Isaac Sim 红球拖动)"""
         pos = np.array([
             msg.pose.position.x,
             msg.pose.position.y,
@@ -161,6 +172,7 @@ class ROS2RobotInterface(Node):
         ])
         with self._lock:
             self._target_pos = pos
+        self.get_logger().info(f'收到目标位置: [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]')
     
     def get_joint_positions(self) -> np.ndarray:
         """获取关节位置 - 与仿真版接口一致"""
@@ -192,9 +204,38 @@ class ROS2RobotInterface(Node):
         return ddq
     
     def get_target_position(self) -> np.ndarray:
-        """获取目标位置 (如果通过 ROS2 发布)"""
+        """获取目标位置 (来自 Isaac Sim 红球拖动)"""
         with self._lock:
-            return self._target_pos.copy() if self._target_pos is not None else None
+            if self._target_pos is not None:
+                pos = self._target_pos.copy()
+                self._target_pos = None  # 读取后清除，避免重复处理
+                return pos
+            return None
+    
+    def publish_ee_pose(self, position: np.ndarray, orientation: np.ndarray = None):
+        """
+        发布末端位置 (发送到 Isaac Sim 更新绿球)
+        
+        Args:
+            position: 末端位置 [x, y, z] (世界坐标系)
+            orientation: 末端姿态四元数 [x, y, z, w] (可选)
+        """
+        msg = PoseStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = "world"
+        msg.pose.position.x = float(position[0])
+        msg.pose.position.y = float(position[1])
+        msg.pose.position.z = float(position[2])
+        
+        if orientation is not None:
+            msg.pose.orientation.x = float(orientation[0])
+            msg.pose.orientation.y = float(orientation[1])
+            msg.pose.orientation.z = float(orientation[2])
+            msg.pose.orientation.w = float(orientation[3])
+        else:
+            msg.pose.orientation.w = 1.0
+        
+        self._ee_pub.publish(msg)
     
     def apply_action(self, q_des: np.ndarray, duration_sec: float = 0.02):
         """
@@ -287,7 +328,8 @@ def mpc_control_main(args):
         n_dof=n_dof,
         state_topic=args.joint_state_topic,
         cmd_topic=args.joint_cmd_topic,
-        target_topic=args.target_topic
+        target_topic=args.target_topic,
+        ee_topic=args.ee_topic
     )
     
     # 使用 executor 进行后台 spin（可以安全停止）
@@ -342,7 +384,7 @@ def mpc_control_main(args):
     
     goal_ee_pos = np.ravel(mpc.controller.rollout_fn.goal_ee_pos.cpu().numpy())
     goal_ee_quat = np.ravel(mpc.controller.rollout_fn.goal_ee_quat.cpu().numpy())
-    print(f"目标末端位置: {goal_ee_pos}")
+    print(f"目标末端位置 (机器人坐标系): {goal_ee_pos}")
     print(f"控制周期: {control_dt}s")
     
     # ========================================================================
@@ -386,7 +428,10 @@ def mpc_control_main(args):
     print("=" * 60)
     print("开始 MPC 控制循环... (Ctrl+C 退出)")
     print("=" * 60)
-    print("\n提示: 可以通过发布 PoseStamped 到 /mpc_target 来动态更新目标\n")
+    print("\n提示:")
+    print("  - 在 Isaac Sim 中拖动红色目标球来动态更新目标")
+    print("  - 绿色球会显示机械臂实际末端位置")
+    print("")
     
     # 信号处理 - 使用全局变量确保能正确传递
     running = [True]  # 使用列表避免 nonlocal 问题
@@ -453,6 +498,15 @@ def mpc_control_main(args):
         
         # --- 发送指令 ---
         robot.apply_action(cmd['position'], duration_sec=control_dt)
+        
+        # --- 计算并发布末端位置 ---
+        curr = np.hstack([q, dq, ddq])
+        ee_pose = mpc.controller.rollout_fn.get_ee_pose(
+            torch.as_tensor(curr, **tensor_args).unsqueeze(0)
+        )
+        ee_pos_robot = np.ravel(ee_pose['ee_pos_seq'].cpu().numpy())
+        ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, ee_pos_robot)
+        robot.publish_ee_pose(ee_pos_world)
         
         # --- 打印状态 ---
         if i % 50 == 0:
@@ -527,8 +581,10 @@ if __name__ == '__main__':
     parser.add_argument('--joint_cmd_topic', 
                         default='/joint_command',
                         help='关节指令话题 (JointState)')
-    parser.add_argument('--target_topic', default='/mpc_target',
-                        help='目标位置话题 (PoseStamped)')
+    parser.add_argument('--target_topic', default='/target_pose',
+                        help='目标位置话题 (来自 Isaac Sim 红球)')
+    parser.add_argument('--ee_topic', default='/ee_pose',
+                        help='末端位置话题 (发送到 Isaac Sim 绿球)')
     args = parser.parse_args()
     
     # Torch 配置
