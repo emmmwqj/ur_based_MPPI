@@ -30,6 +30,9 @@
 ## 运行步骤
 
 ### 步骤 1: 启动 Isaac Sim + ROS2 桥接 (终端 1)
+---
+**终端一需要取消source系统ROS2环境,注释.bashrc中的source命令，以避免Python版本冲突！！！**
+
 
 ```bash
 cd ~/storm/examples/SIL
