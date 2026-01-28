@@ -1,0 +1,52 @@
+# ============================================================================
+# UR7e Gazebo 仿真 - 机器人基座位姿配置
+# ============================================================================
+# 原始文件: storm/content/configs/gym/ur7e_isaacsim.yml
+# 针对 Gazebo 仿真环境修改
+# ============================================================================
+
+# @package _global_
+use_cuda: True
+cuda_device_num: 0
+
+sim_params:
+  # UR7e URDF 文件路径（相对于 assets 目录）
+  sim_urdf: "urdf/ur7e/ur7e.urdf"
+
+  # Gazebo: 机器人基座位置和姿态
+  # 注意: Gazebo 中机器人通常放置在地面上 (z=0)
+  # Position: [x, y, z], Quaternion: [qx, qy, qz, qw] in xyzw format
+  robot_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+  # UR7e 初始关节角度 (6 DOF)
+  # [shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2, wrist_3]
+  init_state: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
+
+  # Gazebo 使用位置控制模式 (forward_position_controller)
+  control_mode: 'position'
+
+  # Gazebo 特有参数
+  gazebo:
+    # 控制器话题
+    joint_state_topic: '/joint_states'
+    position_cmd_topic: '/forward_position_controller/commands'
+    
+    # 关节顺序 (与 Gazebo URDF 一致)
+    joint_names:
+      - 'shoulder_pan_joint'
+      - 'shoulder_lift_joint'
+      - 'elbow_joint'
+      - 'wrist_1_joint'
+      - 'wrist_2_joint'
+      - 'wrist_3_joint'
+
+  # 资源配置 (Gazebo 不需要这些，但保留兼容性)
+  asset_options:
+    fix_base_link: True
+    flip_visual_attachments: False 
+    armature: 0.001
+    disable_gravity: True
+    collapse_fixed_joints: True
+
+  camera:
+    label_map: {'robot': 2, 'ground': 0}

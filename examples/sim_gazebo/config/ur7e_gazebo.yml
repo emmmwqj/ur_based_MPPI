@@ -1,0 +1,60 @@
+# UR7e Gazebo 仿真专用配置
+# 基于 ur7e_isaacsim.yml，适配 Gazebo + ros2_control
+
+sim_params:
+  # URDF 路径（相对于 STORM assets）
+  sim_urdf: "urdf/ur7e/ur7e.urdf"
+  
+  # 机器人基座位姿 [x, y, z, qx, qy, qz, qw]
+  robot_pose: [0, 0, 0, 0, 0, 0, 1]
+  
+  # 初始关节角度 (rad)
+  init_state: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
+  
+  # 控制频率
+  control_rate: 50.0  # Hz
+
+# 关节名称（与 Gazebo/ros2_control 一致）
+joint_names:
+  - shoulder_pan_joint
+  - shoulder_lift_joint
+  - elbow_joint
+  - wrist_1_joint
+  - wrist_2_joint
+  - wrist_3_joint
+
+# 末端执行器 link 名称
+ee_link: "tool0"
+
+# 关节限位 (rad)
+joint_limits:
+  lower: [-6.28, -6.28, -3.14, -6.28, -6.28, -6.28]
+  upper: [6.28, 6.28, 3.14, 6.28, 6.28, 6.28]
+
+# 关节速度限位 (rad/s)
+velocity_limits: [3.14, 3.14, 3.14, 3.14, 3.14, 3.14]
+
+# 碰撞球配置（用于避障）
+collision_spheres:
+  shoulder_link:
+    - center: [0.0, 0.0, 0.0]
+      radius: 0.08
+  upper_arm_link:
+    - center: [0.0, 0.0, 0.12]
+      radius: 0.06
+    - center: [0.0, 0.0, 0.24]
+      radius: 0.06
+  forearm_link:
+    - center: [0.0, 0.0, 0.1]
+      radius: 0.05
+    - center: [0.0, 0.0, 0.2]
+      radius: 0.05
+  wrist_1_link:
+    - center: [0.0, 0.0, 0.0]
+      radius: 0.04
+  wrist_2_link:
+    - center: [0.0, 0.0, 0.0]
+      radius: 0.04
+  wrist_3_link:
+    - center: [0.0, 0.0, 0.0]
+      radius: 0.04

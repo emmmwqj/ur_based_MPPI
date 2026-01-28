@@ -1,0 +1,827 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+UR7e STORM MPC Reach Static Target - Gazebo 仿真
+
+完整的 Reach 任务实现：
+- STORM MPPI-MPC 控制器
+- 动态目标更新（通过 /target_pose 话题或 RViz InteractiveMarker）
+- 末端位置实时计算和发布
+- 障碍物场景可视化（RViz Markers）
+- 与 SIL 方案功能一致，使用系统 ROS2 通信
+
+用法:
+    # 终端 1: 启动 Gazebo 仿真
+    cd ~/storm/examples/sim_gazebo
+    ./run_gazebo.sh
+    
+    # 终端 2: 运行本脚本
+    cd ~/storm/examples/sim_gazebo
+    python3 reach_static_ur7e.py
+    
+    # 终端 3 (可选): 发布目标位置
+    ros2 topic pub /target_pose geometry_msgs/PoseStamped '{pose: {position: {x: 0.4, y: 0.2, z: 0.5}}}'
+
+ROS2 话题:
+    订阅:
+        /joint_states (sensor_msgs/JointState) - 关节状态
+        /target_pose (geometry_msgs/PoseStamped) - 目标位置
+    发布:
+        /forward_position_controller/commands (Float64MultiArray) - 关节指令
+        /ee_pose (geometry_msgs/PoseStamped) - 末端位置
+        /visualization_marker_array (MarkerArray) - 障碍物和目标可视化
+
+Author: wqj
+Date: 2025
+"""
+
+import sys
+import os
+import time
+import signal
+import yaml
+import argparse
+import numpy as np
+from threading import Thread, Lock
+from scipy.spatial.transform import Rotation
+
+# 添加 STORM 路径
+STORM_ROOT = os.path.expanduser('~/storm')
+sys.path.insert(0, STORM_ROOT)
+
+import torch
+torch.multiprocessing.set_start_method('spawn', force=True)
+
+# ROS2 imports
+try:
+    import rclpy
+    from rclpy.node import Node
+    from rclpy.executors import MultiThreadedExecutor
+    from rclpy.qos import QoSProfile, ReliabilityPolicy
+    from sensor_msgs.msg import JointState
+    from std_msgs.msg import Float64MultiArray, ColorRGBA
+    from geometry_msgs.msg import PoseStamped, Point, Pose, Vector3
+    from visualization_msgs.msg import Marker, MarkerArray
+except ImportError:
+    print("=" * 60)
+    print("错误: 未找到 ROS2 Python 包")
+    print("请先 source ROS2 环境:")
+    print("  source /opt/ros/humble/setup.bash")
+    print("=" * 60)
+    sys.exit(1)
+
+# STORM imports
+from storm_kit.util_file import get_gym_configs_path, get_mpc_configs_path, join_path, get_assets_path
+from storm_kit.mpc.rollout.arm_reacher import ArmReacher
+from storm_kit.mpc.control import MPPI
+from storm_kit.mpc.utils.state_filter import JointStateFilter
+from storm_kit.mpc.utils.mpc_process_wrapper import ControlProcess
+from storm_kit.mpc.task.task_base import BaseTask
+
+np.set_printoptions(precision=3, suppress=True)
+
+
+# ============================================================================
+# 自定义 Gazebo ReacherTask (使用本地配置文件)
+# ============================================================================
+
+class GazeboReacherTask(BaseTask):
+    """
+    Gazebo 专用 ReacherTask
+    
+    与原始 ReacherTask 相比，支持绝对路径配置文件加载
+    """
+    
+    def __init__(self, task_file, robot_file, world_file, tensor_args):
+        super().__init__(tensor_args=tensor_args)
+        self.controller = self.init_mppi(task_file, robot_file, world_file)
+        self.init_aux()
+    
+    def get_rollout_fn(self, **kwargs):
+        return ArmReacher(**kwargs)
+    
+    def init_mppi(self, task_file, robot_file, world_file):
+        """初始化 MPPI 控制器，支持绝对路径"""
+        
+        # 加载机器人配置 (支持绝对路径)
+        if os.path.isabs(robot_file):
+            robot_yml = robot_file
+        else:
+            robot_yml = join_path(get_gym_configs_path(), robot_file)
+        
+        with open(robot_yml) as f:
+            robot_params = yaml.safe_load(f)
+        
+        # 加载世界/障碍物配置 (支持绝对路径)
+        if os.path.isabs(world_file):
+            world_yml = world_file
+        else:
+            world_yml = join_path(get_gym_configs_path(), world_file)
+        
+        with open(world_yml) as f:
+            world_params = yaml.safe_load(f)
+        
+        # 加载 MPC 任务配置 (支持绝对路径)
+        if os.path.isabs(task_file):
+            mpc_yml = task_file
+        else:
+            mpc_yml = join_path(get_mpc_configs_path(), task_file)
+        
+        with open(mpc_yml) as f:
+            exp_params = yaml.safe_load(f)
+        
+        exp_params['robot_params'] = exp_params['model']
+        
+        # 创建 rollout 函数
+        rollout_fn = self.get_rollout_fn(
+            exp_params=exp_params,
+            tensor_args=self.tensor_args,
+            world_params=world_params
+        )
+        
+        # 配置 MPPI 参数
+        mppi_params = exp_params['mppi']
+        dynamics_model = rollout_fn.dynamics_model
+        mppi_params['d_action'] = dynamics_model.d_action
+        mppi_params['action_lows'] = -exp_params['model']['max_acc'] * torch.ones(
+            dynamics_model.d_action, **self.tensor_args
+        )
+        mppi_params['action_highs'] = exp_params['model']['max_acc'] * torch.ones(
+            dynamics_model.d_action, **self.tensor_args
+        )
+        
+        init_q = torch.tensor(exp_params['model']['init_state'], **self.tensor_args)
+        init_action = torch.zeros(
+            (mppi_params['horizon'], dynamics_model.d_action),
+            **self.tensor_args
+        )
+        init_action[:, :] += init_q
+        
+        if exp_params['control_space'] == 'acc':
+            mppi_params['init_mean'] = init_action * 0.0
+        elif exp_params['control_space'] == 'pos':
+            mppi_params['init_mean'] = init_action
+        
+        mppi_params['rollout_fn'] = rollout_fn
+        mppi_params['tensor_args'] = self.tensor_args
+        
+        controller = MPPI(**mppi_params)
+        self.exp_params = exp_params
+        
+        return controller
+    
+    def init_aux(self):
+        """初始化辅助组件（状态滤波器、控制进程）"""
+        self.state_filter = JointStateFilter(
+            filter_coeff=self.exp_params['state_filter_coeff'],
+            dt=self.exp_params['control_dt']
+        )
+        self.command_filter = JointStateFilter(
+            filter_coeff=self.exp_params['cmd_filter_coeff'],
+            dt=self.exp_params['control_dt']
+        )
+        self.control_process = ControlProcess(self.controller)
+        self.n_dofs = self.controller.rollout_fn.dynamics_model.n_dofs
+        self.zero_acc = np.zeros(self.n_dofs)
+
+
+# ============================================================================
+# 辅助函数
+# ============================================================================
+
+def transform_point(position, orientation_xyzw, point):
+    """将点从机器人坐标系变换到世界坐标系"""
+    rot = Rotation.from_quat(orientation_xyzw)
+    return rot.apply(point) + np.array(position)
+
+
+def inv_transform_point(position, orientation_xyzw, point):
+    """将点从世界坐标系变换到机器人坐标系"""
+    rot = Rotation.from_quat(orientation_xyzw).inv()
+    return rot.apply(np.array(point) - np.array(position))
+
+
+# ============================================================================
+# Gazebo ROS2 机器人接口
+# ============================================================================
+
+class GazeboRobotInterface(Node):
+    """
+    Gazebo 机器人 ROS2 接口
+    
+    订阅:
+        /joint_states - 关节状态
+        /target_pose - 目标位置（用于动态更新目标）
+    发布:
+        /forward_position_controller/commands - 关节位置指令
+        /ee_pose - 末端位置
+        /visualization_marker_array - 可视化标记
+    """
+    
+    def __init__(self, joint_names: list, control_rate: float = 50.0):
+        super().__init__('storm_mpc_reach_static')
+        
+        self.joint_names = joint_names
+        self.n_dof = len(joint_names)
+        self.control_rate = control_rate
+        self.control_dt = 1.0 / control_rate
+        
+        # 线程锁
+        self._lock = Lock()
+        
+        # 当前状态
+        self._positions = None
+        self._velocities = None
+        self._prev_velocities = None
+        self._prev_time = None
+        self._state_received = False
+        self._state_count = 0
+        self._cmd_count = 0
+        
+        # 目标位置（从 ROS2 接收）
+        self._target_pos = None
+        
+        # QoS 配置
+        qos = QoSProfile(depth=10)
+        qos_reliable = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+        
+        # 订阅关节状态
+        self.sub_joint_states = self.create_subscription(
+            JointState, '/joint_states', self._joint_state_callback, qos
+        )
+        
+        # 订阅目标位置（用于动态更新目标）
+        self.sub_target = self.create_subscription(
+            PoseStamped, '/target_pose', self._target_callback, qos
+        )
+        
+        # 发布位置指令 (ForwardPositionController)
+        self.pub_position_cmd = self.create_publisher(
+            Float64MultiArray, '/forward_position_controller/commands', qos_reliable
+        )
+        
+        # 发布末端位置
+        self.pub_ee_pose = self.create_publisher(
+            PoseStamped, '/ee_pose', qos
+        )
+        
+        # 发布可视化标记
+        self.pub_markers = self.create_publisher(
+            MarkerArray, '/visualization_marker_array', qos
+        )
+        
+        self.get_logger().info(f'Gazebo Robot Interface 初始化完成')
+        self.get_logger().info(f'  控制频率: {control_rate} Hz')
+        self.get_logger().info(f'  关节数: {self.n_dof}')
+        self.get_logger().info(f'  订阅: /joint_states, /target_pose')
+        self.get_logger().info(f'  发布: /forward_position_controller/commands, /ee_pose, /visualization_marker_array')
+    
+    def _joint_state_callback(self, msg: JointState):
+        """处理关节状态消息"""
+        positions = np.zeros(self.n_dof)
+        velocities = np.zeros(self.n_dof)
+        
+        for i, name in enumerate(self.joint_names):
+            if name in msg.name:
+                idx = msg.name.index(name)
+                positions[i] = msg.position[idx]
+                if len(msg.velocity) > idx:
+                    velocities[i] = msg.velocity[idx]
+        
+        with self._lock:
+            self._positions = positions
+            self._velocities = velocities
+            self._state_received = True
+            self._state_count += 1
+    
+    def _target_callback(self, msg: PoseStamped):
+        """处理目标位置消息"""
+        pos = np.array([
+            msg.pose.position.x,
+            msg.pose.position.y,
+            msg.pose.position.z
+        ])
+        with self._lock:
+            self._target_pos = pos
+        self.get_logger().info(f'收到目标位置: [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]')
+    
+    def get_joint_positions(self) -> np.ndarray:
+        """获取当前关节位置"""
+        with self._lock:
+            if self._positions is None:
+                return None
+            return self._positions.copy()
+    
+    def get_joint_velocities(self) -> np.ndarray:
+        """获取当前关节速度"""
+        with self._lock:
+            if self._velocities is None:
+                return None
+            return self._velocities.copy()
+    
+    def get_state(self) -> dict:
+        """
+        获取完整机器人状态
+        
+        Returns:
+            dict: {'position': np.array, 'velocity': np.array, 'acceleration': np.array}
+        """
+        with self._lock:
+            if not self._state_received:
+                return None
+            
+            pos = self._positions.copy()
+            vel = self._velocities.copy()
+        
+        # 估算加速度
+        current_time = time.time()
+        if self._prev_velocities is not None and self._prev_time is not None:
+            dt = max(current_time - self._prev_time, 0.001)
+            accel = (vel - self._prev_velocities) / dt
+        else:
+            accel = np.zeros(self.n_dof)
+        
+        self._prev_velocities = vel.copy()
+        self._prev_time = current_time
+        
+        return {
+            'position': pos,
+            'velocity': vel,
+            'acceleration': accel
+        }
+    
+    def get_target_position(self) -> np.ndarray:
+        """获取目标位置（来自 ROS2 话题，读取后清除）"""
+        with self._lock:
+            if self._target_pos is not None:
+                pos = self._target_pos.copy()
+                self._target_pos = None
+                return pos
+            return None
+    
+    def send_position_command(self, positions: np.ndarray):
+        """发送关节位置指令"""
+        msg = Float64MultiArray()
+        msg.data = positions.tolist()
+        self.pub_position_cmd.publish(msg)
+        self._cmd_count += 1
+    
+    def publish_ee_pose(self, position: np.ndarray, orientation: np.ndarray = None):
+        """发布末端位置"""
+        msg = PoseStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = "world"
+        msg.pose.position.x = float(position[0])
+        msg.pose.position.y = float(position[1])
+        msg.pose.position.z = float(position[2])
+        
+        if orientation is not None:
+            msg.pose.orientation.x = float(orientation[0])
+            msg.pose.orientation.y = float(orientation[1])
+            msg.pose.orientation.z = float(orientation[2])
+            msg.pose.orientation.w = float(orientation[3])
+        else:
+            msg.pose.orientation.w = 1.0
+        
+        self.pub_ee_pose.publish(msg)
+    
+    def publish_markers(self, obstacles: dict, goal_pos: np.ndarray, ee_pos: np.ndarray):
+        """
+        发布可视化标记到 RViz
+        
+        Args:
+            obstacles: 障碍物配置
+            goal_pos: 目标位置 (世界坐标系)
+            ee_pos: 末端位置 (世界坐标系)
+        """
+        marker_array = MarkerArray()
+        marker_id = 0
+        
+        # 1. 目标标记（红色球）
+        goal_marker = Marker()
+        goal_marker.header.frame_id = "world"
+        goal_marker.header.stamp = self.get_clock().now().to_msg()
+        goal_marker.ns = "goal"
+        goal_marker.id = marker_id
+        goal_marker.type = Marker.SPHERE
+        goal_marker.action = Marker.ADD
+        goal_marker.pose.position.x = float(goal_pos[0])
+        goal_marker.pose.position.y = float(goal_pos[1])
+        goal_marker.pose.position.z = float(goal_pos[2])
+        goal_marker.pose.orientation.w = 1.0
+        goal_marker.scale.x = 0.06
+        goal_marker.scale.y = 0.06
+        goal_marker.scale.z = 0.06
+        goal_marker.color = ColorRGBA(r=0.9, g=0.1, b=0.1, a=0.8)
+        marker_array.markers.append(goal_marker)
+        marker_id += 1
+        
+        # 2. 末端标记（绿色球）
+        ee_marker = Marker()
+        ee_marker.header.frame_id = "world"
+        ee_marker.header.stamp = self.get_clock().now().to_msg()
+        ee_marker.ns = "ee"
+        ee_marker.id = marker_id
+        ee_marker.type = Marker.SPHERE
+        ee_marker.action = Marker.ADD
+        ee_marker.pose.position.x = float(ee_pos[0])
+        ee_marker.pose.position.y = float(ee_pos[1])
+        ee_marker.pose.position.z = float(ee_pos[2])
+        ee_marker.pose.orientation.w = 1.0
+        ee_marker.scale.x = 0.05
+        ee_marker.scale.y = 0.05
+        ee_marker.scale.z = 0.05
+        ee_marker.color = ColorRGBA(r=0.1, g=0.9, b=0.1, a=0.8)
+        marker_array.markers.append(ee_marker)
+        marker_id += 1
+        
+        # 3. 障碍物标记
+        if obstacles:
+            coll_objs = obstacles.get('world_model', {}).get('coll_objs', {})
+            
+            # 球体障碍物
+            for name, params in coll_objs.get('sphere', {}).items():
+                sphere_marker = Marker()
+                sphere_marker.header.frame_id = "world"
+                sphere_marker.header.stamp = self.get_clock().now().to_msg()
+                sphere_marker.ns = "obstacles"
+                sphere_marker.id = marker_id
+                sphere_marker.type = Marker.SPHERE
+                sphere_marker.action = Marker.ADD
+                
+                pos = params.get('position', [0, 0, 0])
+                radius = params.get('radius', 0.1)
+                
+                sphere_marker.pose.position.x = float(pos[0])
+                sphere_marker.pose.position.y = float(pos[1])
+                sphere_marker.pose.position.z = float(pos[2])
+                sphere_marker.pose.orientation.w = 1.0
+                sphere_marker.scale.x = radius * 2
+                sphere_marker.scale.y = radius * 2
+                sphere_marker.scale.z = radius * 2
+                sphere_marker.color = ColorRGBA(r=0.8, g=0.2, b=0.2, a=0.6)
+                marker_array.markers.append(sphere_marker)
+                marker_id += 1
+            
+            # 立方体障碍物
+            for name, params in coll_objs.get('cube', {}).items():
+                cube_marker = Marker()
+                cube_marker.header.frame_id = "world"
+                cube_marker.header.stamp = self.get_clock().now().to_msg()
+                cube_marker.ns = "obstacles"
+                cube_marker.id = marker_id
+                cube_marker.type = Marker.CUBE
+                cube_marker.action = Marker.ADD
+                
+                pose = params.get('pose', [0, 0, 0, 0, 0, 0, 1])
+                dims = params.get('dims', [0.1, 0.1, 0.1])
+                
+                cube_marker.pose.position.x = float(pose[0])
+                cube_marker.pose.position.y = float(pose[1])
+                cube_marker.pose.position.z = float(pose[2])
+                cube_marker.pose.orientation.x = float(pose[3])
+                cube_marker.pose.orientation.y = float(pose[4])
+                cube_marker.pose.orientation.z = float(pose[5])
+                cube_marker.pose.orientation.w = float(pose[6])
+                cube_marker.scale.x = float(dims[0])
+                cube_marker.scale.y = float(dims[1])
+                cube_marker.scale.z = float(dims[2])
+                cube_marker.color = ColorRGBA(r=0.5, g=0.5, b=0.8, a=0.6)
+                marker_array.markers.append(cube_marker)
+                marker_id += 1
+        
+        self.pub_markers.publish(marker_array)
+    
+    def is_connected(self) -> bool:
+        """检查是否已连接到机器人"""
+        return self._state_received
+    
+    def get_state_count(self) -> int:
+        """获取接收的状态数量"""
+        return self._state_count
+    
+    def get_cmd_count(self) -> int:
+        """获取发送的指令数量"""
+        return self._cmd_count
+
+
+# ============================================================================
+# 主控制函数
+# ============================================================================
+
+def mpc_control_main(args):
+    """STORM MPC Reach Static 控制主函数"""
+    
+    print("=" * 60)
+    print("UR7e STORM MPC Reach Static - Gazebo 仿真")
+    print("=" * 60)
+    
+    # =========================================================================
+    # 1. 加载配置 (使用 Gazebo 专用配置文件)
+    # =========================================================================
+    
+    # 配置文件路径 (sim_gazebo/config 目录)
+    config_dir = os.path.join(os.path.dirname(__file__), 'config')
+    
+    robot_file = os.path.join(config_dir, 'ur7e_robot_gazebo.yml')
+    task_file = 'ur7e_reacher_gazebo.yml'  # MPC 任务配置
+    world_file = os.path.join(config_dir, 'collision_world_gazebo.yml')
+    
+    print(f"\n加载配置文件...")
+    print(f"  Robot: {robot_file}")
+    print(f"  Task:  {task_file}")
+    print(f"  World: {world_file}")
+    
+    # 加载机器人配置
+    with open(robot_file) as f:
+        robot_params = yaml.safe_load(f)
+    
+    # 加载障碍物配置
+    with open(world_file) as f:
+        world_params = yaml.safe_load(f)
+    
+    sim_params = robot_params.get('sim_params', {})
+    
+    # 机器人位姿
+    robot_pose = sim_params.get('robot_pose', [0, 0, 0, 0, 0, 0, 1])
+    robot_pos = np.array(robot_pose[:3])
+    robot_quat_xyzw = np.array(robot_pose[3:])
+    
+    # 关节名称
+    joint_names = [
+        'shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
+        'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'
+    ]
+    n_dof = len(joint_names)
+    
+    # =========================================================================
+    # 2. 初始化 ROS2
+    # =========================================================================
+    
+    print("\n初始化 ROS2...")
+    rclpy.init(args=None)
+    
+    control_rate = args.rate
+    robot = GazeboRobotInterface(joint_names, control_rate=control_rate)
+    
+    # 创建多线程执行器
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(robot)
+    
+    # 后台 spin
+    _executor_running = True
+    def spin_with_check():
+        while _executor_running and rclpy.ok():
+            executor.spin_once(timeout_sec=0.1)
+    
+    spin_thread = Thread(target=spin_with_check, daemon=True)
+    spin_thread.start()
+    
+    # 等待连接
+    print("\n等待 Gazebo 关节状态...")
+    timeout = 10.0
+    start = time.time()
+    while not robot.is_connected():
+        if time.time() - start > timeout:
+            print("错误: 无法接收关节状态，请确保 Gazebo 仿真正在运行")
+            _executor_running = False
+            robot.destroy_node()
+            rclpy.shutdown()
+            return 1
+        time.sleep(0.1)
+    
+    print("已连接到 Gazebo 机器人!")
+    
+    # =========================================================================
+    # 3. 初始化 STORM MPC
+    # =========================================================================
+    
+    print("\n初始化 STORM MPC 控制器...")
+    device = 'cuda' if args.cuda else 'cpu'
+    print(f"计算设备: {device}")
+    
+    tensor_args = {
+        'device': torch.device(device, 0) if device == 'cuda' else torch.device('cpu'),
+        'dtype': torch.float32
+    }
+    
+    # 创建 MPC 控制器 (使用 Gazebo 专用配置)
+    task_file_abs = os.path.join(config_dir, 'ur7e_reacher_gazebo.yml')
+    mpc = GazeboReacherTask(task_file_abs, robot_file, world_file, tensor_args)
+    control_dt = mpc.exp_params.get('control_dt', 0.02)
+    print(f"MPC 控制周期: {control_dt} s ({1.0/control_dt:.1f} Hz)")
+    
+    # =========================================================================
+    # 4. 设置初始目标
+    # =========================================================================
+    
+    # 目标关节状态
+    goal_state = np.array([0.5, -1.2, 1.2, -1.57, -1.57, 0.0, 0, 0, 0, 0, 0, 0])
+    mpc.update_params(goal_state=goal_state)
+    
+    # 获取目标末端位置
+    goal_ee_pos_robot = np.ravel(mpc.controller.rollout_fn.goal_ee_pos.cpu().numpy())
+    goal_ee_quat = np.ravel(mpc.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+    goal_ee_world = transform_point(robot_pos, robot_quat_xyzw, goal_ee_pos_robot)
+    
+    print(f"\n目标末端位置 (机器人坐标系): {goal_ee_pos_robot}")
+    print(f"目标末端位置 (世界坐标系): {goal_ee_world}")
+    
+    # 保存 rollout_fn 用于计算末端位置
+    rollout_fn = mpc.controller.rollout_fn
+    
+    # 当前目标
+    current_goal_ee = goal_ee_pos_robot.copy()
+    current_goal_world = goal_ee_world.copy()
+    
+    # =========================================================================
+    # 5. MPC 控制循环
+    # =========================================================================
+    
+    print("\n" + "=" * 60)
+    print("开始 MPC 控制循环... (Ctrl+C 退出)")
+    print("=" * 60)
+    print("\n提示:")
+    print("  - 发布 PoseStamped 到 /target_pose 可动态更新目标")
+    print("  - 在 RViz 中查看 /visualization_marker_array")
+    print("  - 红球=目标, 绿球=末端")
+    print("")
+    
+    # 信号处理
+    running = [True]
+    
+    def shutdown_handler(sig, frame):
+        print("\n收到退出信号，正在退出...")
+        running[0] = False
+        nonlocal _executor_running
+        _executor_running = False
+    
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    
+    # 预热 MPC
+    print("预热 MPC 控制器...")
+    t = 0.0
+    for _ in range(5):
+        state = robot.get_state()
+        if state is not None:
+            try:
+                mpc.get_command(t, state, control_dt=control_dt, WAIT=False)
+            except:
+                pass
+        t += control_dt
+        time.sleep(0.01)
+    
+    # 等待第一次优化完成
+    print("等待首次优化完成...")
+    state = robot.get_state()
+    if state is not None:
+        try:
+            cmd = mpc.get_command(t, state, control_dt=control_dt, WAIT=True)
+            print(f"首次优化完成! opt_dt={mpc.opt_dt:.3f}s")
+        except Exception as e:
+            print(f"首次优化异常: {e}")
+    
+    print("\nMPC 预热完成，开始控制!\n")
+    
+    # 控制变量
+    i = 0
+    loop_start = time.time()
+    prev_vel = np.zeros(n_dof)
+    marker_update_counter = 0
+    
+    while running[0] and rclpy.ok():
+        iter_start = time.time()
+        t = time.time() - loop_start
+        
+        # --- 1. 获取状态 ---
+        state = robot.get_state()
+        if state is None:
+            time.sleep(control_dt)
+            continue
+        
+        q = state['position']
+        dq = state['velocity']
+        ddq = state['acceleration']
+        
+        # --- 2. 检测目标更新 ---
+        new_target = robot.get_target_position()
+        if new_target is not None:
+            # 目标是世界坐标系，转换到机器人坐标系
+            target_robot = inv_transform_point(robot_pos, robot_quat_xyzw, new_target)
+            if np.linalg.norm(target_robot - current_goal_ee) > 0.005:
+                current_goal_ee = target_robot.copy()
+                current_goal_world = new_target.copy()
+                mpc.update_params(goal_ee_pos=current_goal_ee, goal_ee_quat=goal_ee_quat)
+                print(f"[目标更新] 世界: {np.round(current_goal_world, 3)}, 机器人: {np.round(current_goal_ee, 3)}")
+        
+        # --- 3. MPC 计算 ---
+        try:
+            cmd = mpc.get_command(t, state, control_dt=control_dt, WAIT=False)
+            
+            if cmd is None or 'position' not in cmd:
+                i += 1
+                time.sleep(control_dt)
+                continue
+        except (IndexError, RuntimeError) as e:
+            i += 1
+            time.sleep(control_dt)
+            continue
+        
+        # --- 4. 发送指令 ---
+        target_positions = cmd['position']
+        if isinstance(target_positions, torch.Tensor):
+            target_positions = target_positions.cpu().numpy()
+        target_positions = np.array(target_positions).flatten()[:n_dof]
+        robot.send_position_command(target_positions)
+        
+        # --- 5. 计算并发布末端位置 ---
+        curr = np.hstack([q, dq, ddq])
+        ee_pose = rollout_fn.get_ee_pose(
+            torch.as_tensor(curr, **tensor_args).unsqueeze(0)
+        )
+        ee_pos_robot = np.ravel(ee_pose['ee_pos_seq'].cpu().numpy())
+        ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, ee_pos_robot)
+        robot.publish_ee_pose(ee_pos_world)
+        
+        # --- 6. 发布可视化标记（降低频率）---
+        marker_update_counter += 1
+        if marker_update_counter >= 10:  # 每 10 帧更新一次
+            robot.publish_markers(world_params, current_goal_world, ee_pos_world)
+            marker_update_counter = 0
+        
+        # --- 7. 打印状态 ---
+        if i % 50 == 0:
+            err = mpc.get_current_error(state)
+            rx_count = robot.get_state_count()
+            tx_count = robot.get_cmd_count()
+            print(f"[{i:4d}] 误差: {[f'{x:.3f}' for x in err]}, "
+                  f"opt: {mpc.opt_dt:.3f}s, ee: {np.round(ee_pos_world, 3)}, "
+                  f"rx/tx: {rx_count}/{tx_count}")
+        
+        # --- 8. 保持控制频率 ---
+        elapsed = time.time() - iter_start
+        sleep_time = (1.0 / control_rate) - elapsed
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        
+        i += 1
+    
+    # =========================================================================
+    # 清理
+    # =========================================================================
+    
+    print("\n清理资源...")
+    
+    _executor_running = False
+    spin_thread.join(timeout=1.0)
+    
+    # 关闭 MPC
+    print("  关闭 MPC...")
+    def close_mpc():
+        try:
+            mpc.close()
+        except:
+            pass
+    
+    close_thread = Thread(target=close_mpc, daemon=True)
+    close_thread.start()
+    close_thread.join(timeout=2.0)
+    
+    # 关闭 ROS2
+    print("  关闭 ROS2...")
+    try:
+        robot.destroy_node()
+    except:
+        pass
+    try:
+        rclpy.shutdown()
+    except:
+        pass
+    
+    print("完成!")
+    return 0
+
+
+# ============================================================================
+# 入口点
+# ============================================================================
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='UR7e STORM MPC Reach Static - Gazebo')
+    parser.add_argument('--cuda', action='store_true', default=True,
+                        help='使用 CUDA 加速 (默认: True)')
+    parser.add_argument('--no-cuda', dest='cuda', action='store_false',
+                        help='禁用 CUDA')
+    parser.add_argument('--rate', type=float, default=50.0,
+                        help='控制频率 Hz (默认: 50)')
+    
+    args = parser.parse_args()
+    
+    # Torch 配置
+    torch.set_num_threads(8)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    
+    sys.exit(mpc_control_main(args))
