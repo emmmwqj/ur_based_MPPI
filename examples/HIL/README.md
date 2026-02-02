@@ -41,7 +41,7 @@ HIL/
 ### 前置条件
 
 1. **UR ROS2 Driver** 已安装 (`~/ur_arm/ros_ur_driver`)
-2. **UR7e 机器人** 已连接 (IP: 192.168.131.38)
+2. **UR7e 机器人** 已连接 (IP: 192.168.56.100)
 3. **STORM** 环境已配置 (`conda activate storm_py310`)
 4. **机器人标定文件** 已生成 (`~/ur_arm/my_robot_calibration.yaml`)
 
@@ -60,10 +60,13 @@ source ~/ur_arm/ros_ur_driver/install/setup.bash
 
 ros2 launch ur_robot_driver ur_control.launch.py \
   ur_type:=ur7e \
-  robot_ip:=192.168.131.38 \
+  robot_ip:=192.168.56.100 \
   kinematics_params_file:="${HOME}/ur_arm/my_robot_calibration.yaml" \
+  initial_joint_controller:=forward_position_controller \
   launch_rviz:=false
 ```
+
+> ⚠️ **重要**: 必须添加 `initial_joint_controller:=forward_position_controller` 参数，否则默认会激活 `scaled_joint_trajectory_controller`，无法用于高频 MPC 控制。
 
 ### 步骤 2: 测试连接
 
@@ -81,7 +84,7 @@ cd ~/storm/examples/HIL
 ./run_hil_mpc.sh
 ```
 
-### 步骤 4: 启动 RViz 可视化 (可选)
+### 步骤 4: 启动 RViz 可视化 (通常启动MPC控制器的时候已经启动了可视化)
 
 ```bash
 # 终端 3
@@ -129,7 +132,7 @@ python3 ur7e_hil_mpc.py [OPTIONS]
 
 | 话题 | 类型 | 说明 |
 |------|------|------|
-| `/scaled_joint_trajectory_controller/joint_trajectory` | `trajectory_msgs/JointTrajectory` | 关节轨迹指令 |
+| `/forward_position_controller/commands` | `std_msgs/Float64MultiArray` | 关节位置指令 |
 | `/ee_pose` | `geometry_msgs/PoseStamped` | 末端位置 |
 | `/visualization_marker_array` | `visualization_msgs/MarkerArray` | RViz 可视化 |
 
@@ -141,8 +144,8 @@ python3 ur7e_hil_mpc.py [OPTIONS]
 |------|---------------------|------------------|
 | 机器人 | 仿真模型 | 真实 UR7e |
 | 障碍物 | 仿真 + RViz | **仅 RViz 可视化** |
-| 控制器 | forward_position_controller | **scaled_joint_trajectory_controller** |
-| 话题 | `/forward_position_controller/commands` | `/scaled_joint_trajectory_controller/joint_trajectory` |
+| 控制器 | forward_position_controller | **forward_position_controller** |
+| 话题 | `/forward_position_controller/commands` | `/forward_position_controller/commands` |
 | 安全性 | 无限制 | **速度/加速度限制** |
 
 ---
@@ -158,9 +161,9 @@ sim_params:
   
   # HIL 专用参数
   hil:
-    robot_ip: "192.168.131.38"
+    robot_ip: "192.168.56.100"
     joint_state_topic: "/joint_states"
-    trajectory_topic: "/scaled_joint_trajectory_controller/joint_trajectory"
+    position_cmd_topic: "/forward_position_controller/commands"  # 适合高频 MPC
 ```
 
 ### `collision_world_hil.yml` - 虚拟障碍物
@@ -169,13 +172,13 @@ sim_params:
 world_model:
   coll_objs:
     sphere:
-      virtual_sphere1:
+      sphere1:
         radius: 0.1
-        position: [0.4, 0.3, 0.4]
+        position: [0.4, -0.4, 0.1]  # Y轴镜像后
     cube:
-      virtual_wall:
+      cube1:
         dims: [0.3, 0.1, 0.4]
-        pose: [0.4, 0.25, 0.2, 0, 0, 0, 1.0]
+        pose: [0.4, -0.2, 0.2, 0, 0, 0, 1.0]  # Y轴镜像后
 ```
 
 ---
@@ -186,7 +189,7 @@ world_model:
 
 ```bash
 # 检查网络连接
-ping 192.168.131.38
+ping 192.168.56.100
 
 # 检查 ROS2 话题
 ros2 topic list | grep joint_states
@@ -199,11 +202,14 @@ ros2 topic echo /joint_states --once
 # 查看控制器状态
 ros2 control list_controllers
 
-# 如果需要切换控制器
-ros2 control switch_controllers \
-    --deactivate forward_position_controller \
-    --activate scaled_joint_trajectory_controller
+# 检查 forward_position_controller 是否为 active
+# 如果显示 inactive，需要切换控制器：
+ros2 control switch_controllers --strict \
+    --deactivate scaled_joint_trajectory_controller \
+    --activate forward_position_controller
 ```
+
+> ⚠️ **注意**: 如果使用 `./run_ur_driver.sh` 脚本启动，会自动激活 `forward_position_controller`。如果手动启动 launch 命令，必须添加 `initial_joint_controller:=forward_position_controller` 参数。
 
 ### 3. 机器人不响应指令
 
@@ -220,8 +226,9 @@ ros2 control switch_controllers \
 
 ```yaml
 # 默认目标位置 (末端执行器位置，机器人基座坐标系)
+# 注意: Y 轴已镜像，与 Gazebo 仿真中的目标位置对应
 default_goal:
-  position: [0.4, 0.0, 0.4]      # [x, y, z] 米
+  position: [0.503, -0.427, 0.459]      # [x, y, z] 米 (Y轴镜像后)
   orientation: [0.0, 0.707, 0.0, 0.707]  # [x, y, z, w] 四元数 (末端朝下)
 ```
 
@@ -230,7 +237,7 @@ default_goal:
         Z
         ↑
         │    目标位置
-        │    ★ (0.4, 0.0, 0.4)
+        │    ★ (0.503, -0.427, 0.459)
         │   
         │      ↓ 末端朝下
         │   

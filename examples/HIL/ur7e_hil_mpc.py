@@ -63,11 +63,9 @@ try:
     from rclpy.executors import MultiThreadedExecutor
     from rclpy.qos import QoSProfile, ReliabilityPolicy
     from sensor_msgs.msg import JointState
-    from std_msgs.msg import ColorRGBA
+    from std_msgs.msg import ColorRGBA, Float64MultiArray
     from geometry_msgs.msg import PoseStamped, Point
     from visualization_msgs.msg import Marker, MarkerArray
-    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-    from builtin_interfaces.msg import Duration
 except ImportError:
     print("=" * 60)
     print("错误: 未找到 ROS2 Python 包")
@@ -202,10 +200,10 @@ class HILRobotInterface(Node):
     """
     HIL 真实机器人 ROS2 接口
     
-    与 Gazebo 版本的主要区别:
-    - 使用 JointTrajectory 消息 (而非 Float64MultiArray)
-    - 添加速度/加速度限制
-    - 平滑轨迹点
+    使用 forward_position_controller 进行高频 MPC 控制:
+    - 直接发送关节位置 (Float64MultiArray)
+    - 低延迟，适合 50Hz+ 控制频率
+    - 内置速度限制保证安全
     """
     
     def __init__(self, joint_names: list, control_rate: float = 50.0,
@@ -243,10 +241,10 @@ class HILRobotInterface(Node):
             PoseStamped, '/target_pose', self._target_callback, qos
         )
         
-        # 发布轨迹指令 (使用 scaled_joint_trajectory_controller)
-        self.pub_trajectory = self.create_publisher(
-            JointTrajectory,
-            '/scaled_joint_trajectory_controller/joint_trajectory',
+        # 发布轨迹指令 (使用 forward_position_controller - 适合高频 MPC)
+        self.pub_position_cmd = self.create_publisher(
+            Float64MultiArray,
+            '/forward_position_controller/commands',
             qos_reliable
         )
         
@@ -265,7 +263,7 @@ class HILRobotInterface(Node):
         self.get_logger().info(f'  最大速度: {max_velocity} rad/s')
         self.get_logger().info(f'  最大加速度: {max_acceleration} rad/s^2')
         self.get_logger().info(f'  订阅: /joint_states, /target_pose')
-        self.get_logger().info(f'  发布: /scaled_joint_trajectory_controller/joint_trajectory')
+        self.get_logger().info(f'  发布: /forward_position_controller/commands')
     
     def _joint_state_callback(self, msg: JointState):
         positions = np.zeros(self.n_dof)
@@ -337,52 +335,27 @@ class HILRobotInterface(Node):
                 return pos
             return None
     
-    def send_trajectory_command(self, positions: np.ndarray, 
-                                 velocities: np.ndarray = None,
-                                 duration_sec: float = None):
+    def send_position_command(self, positions: np.ndarray):
         """
-        发送轨迹指令到真实机器人
+        发送位置指令到真实机器人
         
-        使用 JointTrajectory 消息，比 Float64MultiArray 更安全
+        使用 forward_position_controller，适合高频 MPC 控制
+        - 直接发送关节位置，无需轨迹规划
+        - 低延迟，适合 50Hz+ 控制频率
         """
-        if duration_sec is None:
-            duration_sec = self.control_dt * 2  # 给一些缓冲时间
-        
         # 限制位置变化（安全措施）
         if self._last_cmd_positions is not None:
             delta = positions - self._last_cmd_positions
-            max_delta = self.max_velocity * duration_sec
+            max_delta = self.max_velocity * self.control_dt
             delta = np.clip(delta, -max_delta, max_delta)
             positions = self._last_cmd_positions + delta
         
         self._last_cmd_positions = positions.copy()
         
-        # 创建轨迹消息
-        msg = JointTrajectory()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.joint_names = self.joint_names
-        
-        # 创建轨迹点
-        point = JointTrajectoryPoint()
-        point.positions = positions.tolist()
-        
-        if velocities is not None:
-            # 限制速度
-            velocities = np.clip(velocities, -self.max_velocity, self.max_velocity)
-            point.velocities = velocities.tolist()
-        else:
-            point.velocities = [0.0] * self.n_dof
-        
-        point.accelerations = [0.0] * self.n_dof
-        
-        # 设置执行时间
-        point.time_from_start = Duration(
-            sec=int(duration_sec),
-            nanosec=int((duration_sec % 1) * 1e9)
-        )
-        
-        msg.points = [point]
-        self.pub_trajectory.publish(msg)
+        # 创建并发送 Float64MultiArray 消息
+        msg = Float64MultiArray()
+        msg.data = positions.tolist()
+        self.pub_position_cmd.publish(msg)
         self._cmd_count += 1
     
     def publish_ee_pose(self, position: np.ndarray, orientation: np.ndarray = None):
@@ -466,8 +439,8 @@ class HILRobotInterface(Node):
                 m.scale.x = radius * 2
                 m.scale.y = radius * 2
                 m.scale.z = radius * 2
-                # 半透明蓝色表示虚拟障碍物
-                m.color = ColorRGBA(r=0.2, g=0.4, b=0.9, a=0.4)
+                # 红色球形障碍物 (与 Gazebo 一致)
+                m.color = ColorRGBA(r=0.8, g=0.2, b=0.2, a=0.6)
                 marker_array.markers.append(m)
                 marker_id += 1
             
@@ -494,7 +467,8 @@ class HILRobotInterface(Node):
                 m.scale.x = float(dims[0])
                 m.scale.y = float(dims[1])
                 m.scale.z = float(dims[2])
-                m.color = ColorRGBA(r=0.2, g=0.4, b=0.9, a=0.4)
+                # 蓝色立方体障碍物 (与 Gazebo 一致)
+                m.color = ColorRGBA(r=0.5, g=0.5, b=0.8, a=0.6)
                 marker_array.markers.append(m)
                 marker_id += 1
         
@@ -670,20 +644,70 @@ def hil_control_main(args):
     current_goal_world = goal_ee_world.copy()
     
     # =========================================================================
-    # 5. MPC 控制循环
+    # 5. 显示场景信息并等待用户确认
+    # =========================================================================
+    
+    # 计算当前末端位置
+    curr_state = robot.get_state()
+    curr_full = np.concatenate([curr_state['position'], curr_state['velocity'], curr_state['acceleration']])
+    curr_ee_pose = rollout_fn.get_ee_pose(
+        torch.as_tensor(curr_full, **tensor_args).unsqueeze(0)
+    )
+    curr_ee_pos_robot = np.ravel(curr_ee_pose['ee_pos_seq'].cpu().numpy())
+    curr_ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, curr_ee_pos_robot)
+    
+    print("\n" + "=" * 60)
+    print("场景加载完成 - 等待确认启动 MPC")
+    print("=" * 60)
+    print("\n📍 当前机械臂状态:")
+    print(f"   关节位置 (deg): {np.round(np.degrees(curr_state['position']), 1)}")
+    print(f"   末端位置 (世界): {np.round(curr_ee_pos_world, 3)}")
+    print(f"\n🎯 目标位置:")
+    print(f"   末端目标 (世界): {np.round(goal_ee_world, 3)}")
+    print(f"   距离目标: {np.linalg.norm(goal_ee_world - curr_ee_pos_world):.3f} m")
+    
+    # 显示虚拟障碍物信息
+    print(f"\n🧱 虚拟障碍物:")
+    if world_params and 'world_model' in world_params:
+        coll_objs = world_params['world_model'].get('coll_objs', {})
+        sphere_count = len(coll_objs.get('sphere', {}))
+        cube_count = len(coll_objs.get('cube', {}))
+        print(f"   球体: {sphere_count} 个")
+        print(f"   立方体: {cube_count} 个")
+    else:
+        print("   无障碍物")
+    
+    # 发布初始场景可视化到 RViz
+    print("\n📺 正在发布场景到 RViz...")
+    for _ in range(10):  # 多次发布确保 RViz 接收到
+        robot.publish_markers(world_params, goal_ee_world, curr_ee_pos_world)
+        time.sleep(0.1)
+    print("   场景已发布，请在 RViz 中查看")
+    
+    print("\n" + "-" * 60)
+    print("⚠️  安全提示:")
+    print("   1. 确保工作区域无人员")
+    print("   2. 急停按钮在可触及范围内")
+    print("   3. 观察 RViz 中的目标位置和障碍物")
+    print("-" * 60)
+    print("\n按 Enter 启动 MPC 跟踪，Ctrl+C 取消...")
+    
+    try:
+        input()
+    except KeyboardInterrupt:
+        print("\n用户取消，退出...")
+        _executor_running = False
+        robot.destroy_node()
+        rclpy.shutdown()
+        return 0
+    
+    # =========================================================================
+    # 6. MPC 控制循环
     # =========================================================================
     
     print("\n" + "=" * 60)
-    print("开始 HIL MPC 控制循环... (Ctrl+C 安全停止)")
+    print("启动 MPC 跟踪控制... (Ctrl+C 安全停止)")
     print("=" * 60)
-    print("\n⚠️  安全提示:")
-    print("  - 确保工作区域无人员")
-    print("  - 急停按钮在可触及范围内")
-    print("  - 按 Ctrl+C 停止")
-    print("")
-    print("提示:")
-    print("  - 发布 PoseStamped 到 /target_pose 可动态更新目标")
-    print("  - 虚拟障碍物在 RViz 中显示为半透明蓝色")
     print("")
     
     running = [True]
@@ -696,7 +720,7 @@ def hil_control_main(args):
     
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-    
+
     # 预热 MPC
     print("预热 MPC 控制器...")
     t = 0.0
@@ -761,21 +785,13 @@ def hil_control_main(args):
             time.sleep(control_dt)
             continue
         
-        # 发送指令
+        # 发送指令 (使用 forward_position_controller)
         target_positions = cmd['position']
         if isinstance(target_positions, torch.Tensor):
             target_positions = target_positions.cpu().numpy()
         target_positions = np.array(target_positions).flatten()[:n_dof]
         
-        # 可选: 发送速度
-        target_velocities = None
-        if 'velocity' in cmd:
-            target_velocities = cmd['velocity']
-            if isinstance(target_velocities, torch.Tensor):
-                target_velocities = target_velocities.cpu().numpy()
-            target_velocities = np.array(target_velocities).flatten()[:n_dof]
-        
-        robot.send_trajectory_command(target_positions, target_velocities)
+        robot.send_position_command(target_positions)
         
         # 计算末端位置
         curr = np.hstack([q, dq, ddq])
@@ -814,7 +830,7 @@ def hil_control_main(args):
     # 停止机器人 (发送当前位置保持)
     curr_pos = robot.get_joint_positions()
     if curr_pos is not None:
-        robot.send_trajectory_command(curr_pos, np.zeros(n_dof), duration_sec=0.5)
+        robot.send_position_command(curr_pos)
     
     _executor_running = False
     spin_thread.join(timeout=1.0)

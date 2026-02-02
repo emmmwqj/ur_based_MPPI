@@ -25,11 +25,11 @@ sim_params:
   # HIL 专用参数
   hil:
     # 机器人 IP 地址
-    robot_ip: "192.168.131.38"
+    robot_ip: "192.168.56.100"
     
     # ROS2 话题
     joint_state_topic: "/joint_states"
-    trajectory_topic: "/scaled_joint_trajectory_controller/joint_trajectory"
+    position_cmd_topic: "/forward_position_controller/commands"  # 适合高频 MPC
     
     # 关节名称 (与 UR ROS2 Driver 一致)
     joint_names:

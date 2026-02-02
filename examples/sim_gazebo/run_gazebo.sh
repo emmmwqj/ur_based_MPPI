@@ -36,9 +36,14 @@ echo "  ur_type: ur7e"
 echo "  initial_joint_controller: forward_position_controller"
 echo ""
 
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INITIAL_POSITIONS_FILE="${SCRIPT_DIR}/config/initial_positions.yaml"
+
 # 启动 Gazebo 仿真
 ros2 launch ur_simulation_gazebo ur_sim_control.launch.py \
     ur_type:=ur7e \
     initial_joint_controller:=forward_position_controller \
+    initial_positions_file:="${INITIAL_POSITIONS_FILE}" \
     launch_rviz:=true \
     gazebo_gui:=true

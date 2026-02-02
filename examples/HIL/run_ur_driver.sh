@@ -6,7 +6,7 @@
 # 启动 UR 官方 ROS2 驱动连接真实 UR7e 机器人
 #
 # 前置条件:
-#   1. UR7e 机器人已开机并连接网络 (IP: 192.168.131.38)
+#   1. UR7e 机器人已开机并连接网络 (IP: 192.168.56.100)
 #   2. UR 示教器上运行 External Control 程序
 #
 # ============================================================================
@@ -18,7 +18,7 @@ echo "UR7e ROS2 驱动启动"
 echo "=============================================="
 
 # 配置
-ROBOT_IP="192.168.131.38"
+ROBOT_IP="192.168.56.100"
 UR_TYPE="ur7e"
 CALIBRATION_FILE="${HOME}/ur_arm/my_robot_calibration.yaml"
 
@@ -82,10 +82,12 @@ if [ -n "$CALIBRATION_FILE" ]; then
         ur_type:=$UR_TYPE \
         robot_ip:=$ROBOT_IP \
         kinematics_params_file:="$CALIBRATION_FILE" \
+        initial_joint_controller:=forward_position_controller \
         launch_rviz:=false
 else
     ros2 launch ur_robot_driver ur_control.launch.py \
         ur_type:=$UR_TYPE \
         robot_ip:=$ROBOT_IP \
+        initial_joint_controller:=forward_position_controller \
         launch_rviz:=false
 fi
