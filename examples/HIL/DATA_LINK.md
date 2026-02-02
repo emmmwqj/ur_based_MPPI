@@ -312,3 +312,4 @@ command_filter = JointStateFilter(filter_coeff=0.1, dt=0.02)
 - [ros2_control 架构](https://control.ros.org/)
 - [RTDE 协议规范](https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/)
 - [STORM MPC 论文](https://arxiv.org/abs/2104.13542)
+- [STORM MPPI 算法原理](/home/wqj/storm/Algorithm.md) - 详细算法说明
