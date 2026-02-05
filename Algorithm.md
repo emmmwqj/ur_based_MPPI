@@ -26,8 +26,91 @@ MPPI 是一种基于采样的模型预测控制 (MPC) 算法，源自随机最�
 |----------|------|--------|--------|------|
 | $H$ | 时间步数 (Horizon) | **30** | `mppi.horizon` | 预测时域长度，30步 × 0.02s = 0.6s |
 | $N$ | 采样粒子数 (Num Particles) | **500** | `mppi.num_particles` | 实际采样 498 + 2特殊粒子 |
-| $K$ | 数据点数 (Knots) | **7** | `knot_scale: 4` | $K = H / \text{knot\_scale} = 30/4 \approx 7$ |
+| $K$ | **优化迭代次数 (Iterations)** | **1** | `mppi.n_iters` | 每个控制周期的 MPPI 优化迭代次数 |
 | $\theta_0$ | 初始动作分布 | $\mu=0, \sigma^2=0.005$ | `mppi.init_cov` | 初始均值为零，协方差 0.005 |
+| $M$ | B样条数据点数 (Knots) | **7** | `knot_scale: 4` | $M = \lfloor H / \text{knot\_scale} \rfloor = \lfloor 30/4 \rfloor = 7$ |
+
+> ⚠️ **注意**: 论文 Algorithm 1 中的 $K$ 是**优化迭代次数**，不是 B 样条数据点数！数据点数用 $M$ 表示。
+
+### 为什么 B 样条数据点数 $M = 7$？
+
+**计算公式**：
+$$M = \lfloor H / \text{knot\_scale} \rfloor = \lfloor 30 / 4 \rfloor = 7$$
+
+**代码位置** (`storm_kit/mpc/control/sample_libs.py` 第 288 行)：
+```python
+self.knot_halton_sample_lib = KnotSampleLib(
+    horizon=horizon,           # H = 30
+    d_action=d_action,         # A = 6
+    n_knots=horizon//knot_scale,  # M = 30 // 4 = 7
+    degree=2,                  # 2次B样条
+    sample_method='halton',
+    tensor_args=tensor_args
+)
+```
+
+**为什么选择 $M = 7$（即 `knot_scale = 4`）？**
+
+这是一个关键的设计决策，涉及**采样效率**和**轨迹平滑性**的权衡：
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    M (数据点数) 的选择权衡                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  M 太小 (如 M=3):                    M 太大 (如 M=30):
+  ┌─────────────────────────┐         ┌─────────────────────────┐
+  │   *           *         │         │ * * * * * * * * * * * * │
+  │     ~~~~~~~~           *│         │ 没有降维效果，与直接    │
+  │ 曲线过于平滑，缺乏细节   │         │ 在时间步空间采样相同    │
+  │ 无法表达复杂动作        │         │ 失去 B 样条的优势       │
+  └─────────────────────────┘         └─────────────────────────┘
+  
+  M = 7 (推荐):
+  ┌─────────────────────────┐
+  │ *     *     *     *     │
+  │   ~~~~  ~~~~  ~~~~  ~~~ │
+  │ 平衡：足够的表达能力    │
+  │ + 显著的降维效果        │
+  └─────────────────────────┘
+```
+
+**具体分析**：
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| 原始采样维度 | $H \times A = 30 \times 6 = 180$ | 不使用 B 样条时的采样维度 |
+| B样条采样维度 | $M \times A = 7 \times 6 = 42$ | 使用 B 样条后的采样维度 |
+| **降维比例** | $180 / 42 \approx 4.3\times$ | **采样效率提升 4 倍以上** |
+| 每个数据点覆盖 | $H / M \approx 4.3$ 个时间步 | 每个数据点"负责"约 4 个时间步 |
+
+**$M = 7$ 的优势**：
+
+1. **充足的表达能力**：
+   - 7 个数据点可以表达轨迹的主要特征（起点、终点、2-3 个转折点）
+   - 对于 0.6 秒的预测窗口，7 个点足以描述大多数机械臂动作
+
+2. **显著的降维效果**：
+   - 采样空间从 180 维降到 42 维
+   - Halton 序列在低维空间的均匀覆盖性更好
+   - 相同数量的采样可以更好地覆盖解空间
+
+3. **B 样条的平滑保证**：
+   - 2次/3次 B 样条保证 $C^1$/$C^2$ 连续性
+   - 即使数据点较少，拟合曲线也是平滑的
+
+4. **计算效率**：
+   - `knot_scale = 4` 使得 $30 / 4 = 7.5 \approx 7$（整数除法）
+   - 7 是一个合理的数据点数量，拟合计算开销适中
+
+**不同 `knot_scale` 的对比**：
+
+| knot_scale | M (数据点) | 采样维度 | 降维比 | 特点 |
+|------------|-----------|----------|--------|------|
+| 2 | 15 | 90 | 2× | 更细致，但降维效果弱 |
+| **4 (默认)** | **7** | **42** | **4.3×** | **推荐：平衡选择** |
+| 6 | 5 | 30 | 6× | 更平滑，但表达能力弱 |
+| 10 | 3 | 18 | 10× | 极度平滑，只能表达简单动作 |
 
 ### 详细参数配置
 
@@ -40,7 +123,7 @@ mppi:
   # ─────────────────────────────────────────────────
   horizon: 30              # H: 时间步数 (0.6秒预测窗口)
   num_particles: 500       # N: 采样粒子数
-  n_iters: 1               # 每个控制周期的 MPPI 迭代次数
+  n_iters: 1               # K: 优化迭代次数 (默认只迭代1次)
   
   # ─────────────────────────────────────────────────
   # θ₀: 初始动作分布参数
@@ -69,7 +152,7 @@ mppi:
   sample_params:
     type: 'multiple'
     sample_ratio: {'halton': 0.0, 'halton-knot': 1.0, ...}
-    knot_scale: 4          # K = H/knot_scale = 30/4 ≈ 7 个数据点
+    knot_scale: 4          # M = H/knot_scale = 30/4 ≈ 7 个数据点
 ```
 
 ### 参数可视化
@@ -87,8 +170,10 @@ mppi:
        μ₀ = 0 (零均值)                 mean_action 初始化为零
        Σ₀ = 0.005 * I                  scale_tril = √0.005 ≈ 0.071
        
-  for k = 1 to K:                      n_iters: 1 (每周期只迭代1次)
-      ↓
+  for k = 1 to K:                      n_iters: 1 (K=1, 每周期只迭代1次)
+      ↓                                     ↓
+    优化迭代 K 次                       默认只迭代 1 次 (实时性要求)
+    
     Sample N trajectories               num_particles: 500
          ↓                                  ↓
       N = 500 条轨迹                   498 条 Halton-knot 采样
@@ -99,10 +184,15 @@ mppi:
          ↓                                  ↓
       H = 30 步                        30 × 0.02s = 0.6秒
       
-    B-spline with K knots               knot_scale: 4
+    B-spline with M knots               knot_scale: 4
          ↓                                  ↓
-      K = 7 个数据点                   30 / 4 ≈ 7
+      M = 7 个数据点                   30 / 4 ≈ 7
 ```
+
+> 💡 **为什么 $K=1$（只迭代一次）？**
+> - 实时控制要求：每个控制周期只有 20ms (50Hz)
+> - 热启动策略：使用上一周期的解作为初始值，已经是一个好的起点
+> - 多次迭代会增加计算时间，可能导致控制延迟
 
 ### INPUT $\theta_0$ 详解
 
@@ -144,6 +234,68 @@ mppi:
 > 💡 **为什么 $\Sigma_0 = 0.005$？**
 > - 这个值经过调参，平衡了探索（更大的方差）和稳定性（更小的方差）
 > - 对于加速度控制，0.071 rad/s² 的标准差提供适度的探索范围
+
+### 变时间步机制 (Variable dt)
+
+STORM 的时间步 **不是固定值**，而是使用**变时间步机制**来扩展预测窗口：
+
+```yaml
+# 配置参数 (ur7e_reacher.yml)
+model:
+  dt: 0.02                 # 默认时间步
+  dt_traj_params:
+    base_dt: 0.02          # 近期时间步（前 50%）
+    base_ratio: 0.5        # 使用 base_dt 的比例
+    max_dt: 0.2            # 远期最大时间步
+```
+
+**实际生成的 dt 数组 (H=30)**：
+
+```python
+# 代码: storm_kit/mpc/model/urdf_kinematic_model.py
+
+# 前 50% 的时间步使用 base_dt = 0.02s
+dt_array = [0.02] * 15  # 步骤 0-14
+
+# 后 50% 的时间步线性递增到 max_dt = 0.2s
+smooth_blending = linspace(0.02, 0.2, steps=15)  # 步骤 15-29
+dt_array += smooth_blending
+
+# 最终: _dt_h = [0.02, 0.02, ..., 0.02, 0.033, 0.046, ..., 0.2]
+```
+
+**时间步分布图**：
+
+```
+dt (秒)
+  │
+0.2│                                    ╭────●
+   │                                 ╭──╯
+   │                              ╭──╯
+0.1│                           ╭──╯
+   │                        ╭──╯
+   │ ●────────────────────●╯
+0.02                                      
+   └──────────────────────────────────────→ 时间步索引 (h)
+   0     5     10    15    20    25    30
+   |<-- base_dt=0.02 -->|<-- 线性递增 -->|
+          (50%)               (50%)
+```
+
+**物理时间覆盖**：
+
+| 时间步范围 | dt 类型 | 物理时间 | 说明 |
+|------------|---------|----------|------|
+| h=0~14 | 固定 0.02s | 0.0s ~ 0.3s | 近期：精细控制 |
+| h=15~29 | 0.02s→0.2s | 0.3s ~ ~2.0s | 远期：粗略预测 |
+| **总计** | 可变 | **约 2 秒** | 比固定 dt 覆盖更长 |
+
+> 💡 **设计目的**：
+> - **近期精细控制**：前 50% 使用小 dt (0.02s)，精确规划即将执行的动作
+> - **远期粗略预测**：后 50% 使用递增 dt，以较低精度预测更远的未来
+> - **扩展预测窗口**：用相同的 30 步覆盖约 2 秒（固定 dt=0.02s 只能覆盖 0.6 秒）
+
+> ⚠️ **注意**：文档中提到的 "30步 × 0.02s = 0.6s" 是近似说法，实际预测窗口约为 **2 秒**。
 
 ---
 
@@ -224,6 +376,117 @@ optimal_action = [
 # 只使用第一个动作 (MPC 的滚动时域策略)
 action_to_execute = optimal_action[0]  # shape: (6,)
 ```
+
+#### 发送到 ROS 话题的消息结构
+
+MPPI 控制器输出的加速度需要经过积分转换为**位置指令**，然后发布到 ROS 话题：
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MPPI 输出 → ROS 话题消息转换                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  MPPI 输出:               积分转换:                发布到话题:
+  ─────────                ─────────                ───────────
+  
+  optimal_action[0]   ──>  integrate_acc()    ──>  Float64MultiArray
+      [6,]                     ↓                        ↓
+    加速度 (rad/s²)       位置 (rad)              /forward_position_controller/commands
+```
+**控制器**:`forward_position_controller` 
+
+forward_position_controller在 ros2_control 体系里属于“转发型控制器”：它自己不做轨迹规划/插补/闭环，只是把你在 ROS 里发布的“关节位置指令”原样写入硬件暴露出来的 position 命令接口。
+
+**给 forward_position_controller 发的就是“当前时刻的关节位置设定值。**
+
+**真实机械臂最终是靠机器人控制器内部的伺服闭环在追踪你给的目标位置。**
+
+**消息类型**: `std_msgs/msg/Float64MultiArray`
+
+```python
+# 文件: examples/HIL/ur7e_hil_mpc.py
+
+from std_msgs.msg import Float64MultiArray
+
+# 消息结构
+msg = Float64MultiArray()
+msg.data = [q1, q2, q3, q4, q5, q6]  # 6 个关节位置 (弧度)
+
+# 话题名称
+topic = "/forward_position_controller/commands"
+```
+
+**转换过程**（加速度 → 位置）:
+
+```python
+# 文件: storm_kit/mpc/task/task_base.py
+
+def get_command(self, t_step, curr_state, control_dt, WAIT=False):
+    ...
+    # 1. MPPI 输出加速度
+    qdd_des = next_command  # shape: [6,], 加速度 (rad/s²)
+    
+    # 2. 积分得到位置/速度指令
+    cmd_des = self.state_filter.integrate_acc(qdd_des)
+    # cmd_des = {
+    #     'position': q_cmd,      # [6,] 位置指令 (rad)
+    #     'velocity': qd_cmd,     # [6,] 速度指令 (rad/s)
+    #     'acceleration': qdd_des # [6,] 加速度 (rad/s²)
+    # }
+    
+    return cmd_des
+```
+
+**积分公式**:
+
+$$q_{cmd} = q_{current} + \dot{q}_{current} \cdot dt + \frac{1}{2} \ddot{q}_{des} \cdot dt^2$$
+
+$$\dot{q}_{cmd} = \dot{q}_{current} + \ddot{q}_{des} \cdot dt$$
+
+**HIL 应用层发送**:
+
+```python
+# 文件: examples/HIL/ur7e_hil_mpc.py
+
+def send_position_command(self, positions: np.ndarray):
+    """
+    发送位置指令到真实机器人
+    
+    参数:
+        positions: [6,] 目标关节位置 (弧度)
+    """
+    # 安全限制: 限制单步位置变化
+    if self._last_cmd_positions is not None:
+        delta = positions - self._last_cmd_positions
+        max_delta = self.max_velocity * self.control_dt  # 0.5 * 0.02 = 0.01 rad
+        delta = np.clip(delta, -max_delta, max_delta)
+        positions = self._last_cmd_positions + delta
+    
+    # 构造消息
+    msg = Float64MultiArray()
+    msg.data = positions.tolist()  # [q1, q2, q3, q4, q5, q6]
+    
+    # 发布到话题
+    self.pub_position_cmd.publish(msg)
+```
+
+**数据流总结**:
+
+| 阶段 | 数据 | 形状 | 单位 | 说明 |
+|------|------|------|------|------|
+| MPPI 输出 | `optimal_action` | `[30, 6]` | rad/s² | 完整动作序列 |
+| 取第一步 | `optimal_action[0]` | `[6,]` | rad/s² | 当前时刻加速度 |
+| 积分 | `cmd_des['position']` | `[6,]` | rad | 目标关节位置 |
+| ROS 消息 | `Float64MultiArray.data` | `[6,]` | rad | 发布到话题 |
+
+**话题信息**:
+
+| 话题名称 | 消息类型 | 频率 | 说明 |
+|----------|----------|------|------|
+| `/forward_position_controller/commands` | `Float64MultiArray` | 50 Hz | 位置指令 |
+| `/joint_states` | `JointState` | 500 Hz | 关节状态反馈 |
+| `/target_pose` | `PoseStamped` | 事件触发 | 目标位姿 |
+| `/ee_pose` | `PoseStamped` | 50 Hz | 末端位姿 |
 
 ---
 
@@ -354,15 +617,15 @@ sample_params:
        │                   │                   │                   │                   │
        ▼                   ▼                   ▼                   ▼                   ▼
    均匀 [0,1]           标准正态            平滑轨迹噪声         缩放后噪声          最终动作
-   [N, K×A]             N(0,1)              [N, H, A]           δ = σ·ε            a = μ + δ
-   K=7数据点            [N, K×A]            H=30时间步          [N, H, A]          [N, H, A]
+   [N, M×A]             N(0,1)              [N, H, A]           δ = σ·ε            a = μ + δ
+   M=7数据点            [N, M×A]            H=30时间步          [N, H, A]          [N, H, A]
 ```
 
 **详细步骤说明**:
 
 | 步骤 | 操作 | 维度变化 | 说明 |
 |------|------|----------|------|
-| 1 | Halton 序列采样 | → [N, K×A] = [498, 42] | 在低维数据点空间采样 |
+| 1 | Halton 序列采样 | → [N, M×A] = [498, 42] | 在低维数据点空间采样 |
 | 2 | 逆 CDF 变换 | [N, 42] → [N, 42] | $\sqrt{2} \cdot \text{erfinv}(2u - 1)$ |
 | 3 | B 样条拟合 | [N, 7, 6] → [N, 30, 6] | 7 个数据点拟合 → 30 点曲线采样 |
 | 4 | 协方差缩放 | [N, 30, 6] → [N, 30, 6] | $\delta = \sigma \cdot \epsilon$ |
@@ -414,32 +677,161 @@ sample_params:
       (抖动、不连续)                       (平滑、连续)
 ```
 
+### 采样结果的时间维度说明
+
+采样输出 `(N, H, A)` 中的 **H 维度包含时间信息**：
+
+```
+采样结果形状: (N, H, A) = (500, 30, 6)
+                  ↓   ↓   ↓
+                粒子  时间  关节
+```
+
+| 索引 | 时间步 | 物理时间 (dt=0.02s) |
+|------|--------|---------------------|
+| `samples[:, 0, :]` | t=0 | 0.00s |
+| `samples[:, 1, :]` | t=1 | 0.02s |
+| ... | ... | ... |
+| `samples[:, 29, :]` | t=29 | 0.58s |
+
+**关键点**：
+- **输入的 7 个数据点**：没有直接的时间含义，只是 Halton + 高斯采样得到的随机值
+- **B 样条拟合过程**：将这 7 个点视为在参数空间 `t ∈ [0, 7]` 均匀分布
+- **输出的 30 个值**：在参数空间均匀采样后，**映射到物理时间轴**
+- **时间平滑性**：2 阶 B 样条保证 $C^1$ 连续（速度连续），相邻时间步之间高度相关
+
+> 💡 这 30 个值**不是**独立采样的，而是从同一条平滑曲线上取的点，这正是 B 样条采样的核心价值。
+
 ### B 样条采样实现
+
+> ⚠️ **重要澄清：数据点 vs 控制点**
+>
+> 你的问题涉及一个常见误解。让我们澄清：
+>
+> **问题**：一个动作维度上（30 个值）是在一个三阶 B 样条中采样的吗？7 个数据点只需要 4 个控制点对吗？
+>
+> **答案**：
+> 1. 代码实际使用的是 **2 阶 B 样条**（`degree=2`），不是 3 阶
+> 2. 这里使用的是 `scipy.interpolate.splrep` **拟合**，不是直接指定控制点
+> 3. 控制点数量由 `splrep` 算法自动确定，取决于数据点数、阶数和平滑因子 `s`
+> 4. 对于 **7 个数据点 + 2 阶 B 样条 + s=0.5**，`splrep` 会生成 **7 个控制点**
+
+### B 样条拟合的数学关系
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    splrep 拟合 vs 直接控制点的区别                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  传统 B 样条 (直接指定控制点):          splrep 拟合 (本代码使用):
+  ─────────────────────────────          ─────────────────────────
+  输入: 控制点 P₀, P₁, ..., Pₙ            输入: 数据点 (t₀,y₀), ..., (tₘ,yₘ)
+  输出: B 样条曲线                        输出: B 样条曲线 (自动确定控制点)
+  
+  特点:                                  特点:
+  - 曲线被控制点"拉"向                    - 曲线"逼近"数据点
+  - 需要预先知道控制点数                  - 控制点数由算法自动确定
+  - 通常不通过控制点                      - 平滑因子 s 控制逼近程度
+```
+
+**代码实际行为验证**：
+
+```python
+# 7 个数据点 + 2 阶 B 样条 + s=0.5
+>>> import numpy as np
+>>> from scipy import interpolate as si
+>>> t_arr = np.linspace(0, 7, 7)  # 7 个数据点的参数位置
+>>> cv = np.array([-0.717, 1.218, -0.110, 0.446, -1.095, 0.772, -0.406])
+>>> spl = si.splrep(t_arr, cv, k=2, s=0.5)  # k=2: 二阶B样条
+>>> t, c, k = spl
+>>> print(f"节点向量长度: {len(t)}")     # 10
+>>> print(f"系数(控制点)数: {len(c)-k-1}")  # 7
+节点向量长度: 10
+系数(控制点)数: 7
+```
+
+**B 样条的数学关系**：
+$$\text{节点数} = \text{控制点数} + \text{阶数} + 1$$
+
+| 数据点数 | 阶数 (degree) | 控制点数 | 节点数 |
+|---------|---------------|----------|--------|
+| 7 | 2 (二阶) | **7** | 10 |
+| 7 | 3 (三阶) | 6 | 10 |
+| 4 | 3 (三阶) | 4 | 8 |
+
+> 💡 **关键理解**：
+> - 我们采样的是 **7 个数据点**，不是控制点
+> - `splrep` 自动计算出 B 样条的控制点（恰好也是 7 个）
+> - 最终在这条 B 样条曲线上均匀采样 30 个点
+
+### 完整采样流程图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│           单个动作维度的 B 样条采样过程 (degree=2, 二阶)                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Step 1: Halton + 逆CDF → 7 个高斯数据点
+  ──────────────────────────────────────
+        y
+      1.2 |     *                            * = 数据点 (我们采样的)
+      0.8 |                    *     
+      0.4 |  *        *                 *
+      0.0 |───────────────────────────────→ t (参数)
+     -0.4 |                          *
+     -0.8 |            *                    
+        t: 0   1.17  2.33  3.5  4.67  5.83  7
+           ↑                              ↑
+          P₀                             P₆
+          
+  Step 2: splrep 拟合 → 自动确定 B 样条
+  ────────────────────────────────────
+  - 输入: 7 个数据点 (t, y)
+  - 平滑因子: s = 0.5
+  - 阶数: k = 2 (二阶)
+  - 输出: 节点向量 [10个] + 控制点系数 [7个]
+  
+  Step 3: splev 求值 → 30 个输出点
+  ─────────────────────────────────
+        y
+      1.2 |    ****                         拟合的 B 样条曲线
+      0.8 |  **    **            ****     
+      0.4 |**        **   *****      **
+      0.0 |*───────────***───────────*──→ t
+     -0.4 |                           **
+     -0.8 |          **                    
+        t: 0  3  6  9  12 15 18 21 24 27 30
+           ↑                              ↑
+        输出点 0                       输出点 29
+        (对应时间步 0)                (对应时间步 29)
+```
+
+### 代码中的实际实现
 
 ```python
 # 文件: storm_kit/mpc/control/sample_libs.py
 
 class KnotSampleLib(object):
     """
-    B 样条控制点采样库
+    B 样条数据点采样库
     
-    通过在低维控制点空间采样，然后使用 B 样条插值生成完整轨迹
+    注意: 这里的 "knot" 实际上是指数据点，不是 B 样条的节点向量！
     """
-    def __init__(self, horizon=0, d_action=0, n_knots=0, degree=3, 
+    def __init__(self, horizon=0, d_action=0, n_knots=0, degree=2,  # 实际使用 degree=2
                  sample_method='halton', **kwargs):
         """
         参数:
             horizon: 时间步数 (30)
             d_action: 动作维度 (6)
-            n_knots: 控制点数量 (horizon // knot_scale = 30 // 4 = 7)
-            degree: B 样条阶数 (默认 3 次样条)
+            n_knots: 数据点数量 (horizon // knot_scale = 30 // 4 = 7)
+            degree: B 样条阶数 (实际使用 degree=2)
             sample_method: 'halton' 或 'random'
         """
         self.ndims = n_knots * d_action  # 7 * 6 = 42 维
-        self.n_knots = n_knots           # 7 个控制点
+        self.n_knots = n_knots           # 7 个数据点
         self.horizon = horizon           # 30 个时间步
         self.d_action = d_action         # 6 个关节
-        self.degree = degree             # 3 次 B 样条
+        self.degree = degree             # 2 阶 B 样条 (实际)
         
     def get_samples(self, sample_shape, **kwargs):
         """
@@ -482,9 +874,9 @@ class KnotSampleLib(object):
             for j in range(self.d_action):     # 遍历 6 个关节
                 # 从 7 个控制点插值生成 30 个时间步
                 self.samples[i, :, j] = bspline(
-                    knot_samples[i, j, :],     # 7 个控制点
-                    n=self.horizon,            # 插值到 30 个点
-                    degree=self.degree         # 3 次 B 样条
+                    knot_samples[i, j, :],     # 7 个数据点
+                    n=self.horizon,            # 拟合到 30 个点
+                    degree=self.degree         # 2 次 B 样条 (degree=2)
                 )
         
         return self.samples  # [N, 30, 6]
@@ -500,7 +892,7 @@ class KnotSampleLib(object):
 from scipy.interpolate import BSpline
 import scipy.interpolate as si
 
-def bspline(c_arr, t_arr=None, n=100, degree=3):
+def bspline(c_arr, t_arr=None, n=100, degree=2):  # 实际使用 degree=2
     """
     使用 SciPy 进行 B 样条**拟合**（非直接控制点插值）
     
@@ -508,7 +900,7 @@ def bspline(c_arr, t_arr=None, n=100, degree=3):
         c_arr: 数据点数组（7 个采样值，作为拟合的目标点）
         t_arr: 数据点对应的参数值（默认均匀分布 [0, 1, 2, ..., 6]）
         n: 输出采样点数 (30)
-        degree: 样条阶数 (3)
+        degree: 样条阶数 (实际使用 2)
     
     返回:
         拟合后的平滑曲线上均匀采样的 30 个点
@@ -637,13 +1029,15 @@ $$S(t) = \sum_{i=0}^{n} P_i B_{i,k}(t)$$
 |------|--------------|----------|----------|----------|----------|
 | `halton` | H×A = 180 | ❌ (需滤波) | ✅ 均匀 | 中 | 快速测试 |
 | `random` | H×A = 180 | ❌ (需滤波) | ❌ 随机 | 低 | 基线对比 |
-| **`halton-knot`** | **K×A = 42** | **✅ B样条** | **✅ 均匀** | **中** | **⭐ 推荐** |
-| `random-knot` | K×A = 42 | ✅ B样条 | ❌ 随机 | 低 | 对比实验 |
+| **`halton-knot`** | **M×A = 42** | **✅ B样条** | **✅ 均匀** | **中** | **⭐ 推荐** |
+| `random-knot` | M×A = 42 | ✅ B样条 | ❌ 随机 | 低 | 对比实验 |
 | `stomp` | H×A = 180 | ✅ 协方差 | ❌ 随机 | 高 | 特殊场景 |
 
 **关键参数**:
-- `knot_scale = 4`: 控制点数量 = horizon / knot_scale = 30 / 4 ≈ 7
-- `degree = 3`: B 样条阶数 (3 次样条，C² 连续)
+- `knot_scale = 4`: 数据点数量 M = horizon / knot_scale = 30 / 4 ≈ 7
+- `degree = 2`: B 样条阶数 (2 次样条，$C^1$ 连续)
+
+> ⚠️ **注意**: 虽然 `bspline()` 函数默认参数是 `degree=3`，但 `MultipleSampleLib` 实际创建时使用的是 `degree=2`！
 
 ---
 
@@ -852,7 +1246,7 @@ $$\mathbf{a}_i = \boldsymbol{\mu} + \sigma \cdot \text{SplineFit}(\text{InvCDF}(
 
 展开为：
 
-1. **数据点采样**: $\mathbf{D}_i = \text{InvCDF}(\text{Halton}(i))$，其中 $\mathbf{D}_i \in \mathbb{R}^{K \times A}$，$K=7$ 个数据点
+1. **数据点采样**: $\mathbf{D}_i = \text{InvCDF}(\text{Halton}(i))$，其中 $\mathbf{D}_i \in \mathbb{R}^{M \times A}$，$M=7$ 个数据点
 2. **B 样条拟合**: $\boldsymbol{\epsilon}_i = \text{SplineFit}(\mathbf{D}_i) \in \mathbb{R}^{H \times A}$ （用 `splrep` 拟合后在 30 点采样）
 3. **协方差缩放**: $\boldsymbol{\delta}_i = \sigma \cdot \boldsymbol{\epsilon}_i$
 4. **加到均值**: $\mathbf{a}_i = \boldsymbol{\mu} + \boldsymbol{\delta}_i$
@@ -1027,7 +1421,7 @@ samples = si.splev(xx, spl)  # 得到 30 个平滑的输出值
 ```
 
 ```
-数据点 (K=7) 及拟合曲线:
+数据点 (M=7) 及拟合曲线:
       ε
     1.5 |          * ← 数据点 (不一定在曲线上！)
     1.0 |        ~~~*~~                   ~~~
@@ -1240,9 +1634,9 @@ trajectories = controller.generate_rollouts(state)
                     for i in range(N):
                         for j in range(6):
                             samples[i,:,j] = bspline(
-                                knot_samples[i,j,:],  # 7 个控制点
-                                n=30,                 # 插值到 30 个时间步
-                                degree=3              # 3 次 B 样条
+                                knot_samples[i,j,:],  # 7 个数据点
+                                n=30,                 # 拟合到 30 个时间步
+                                degree=2              # 2 次 B 样条
                             )
                     return samples  # [N, 30, 6]
 
