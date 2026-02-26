@@ -22,5 +22,8 @@
 # DEALINGS IN THE SOFTWARE.#
 from .task_base import BaseTask
 from .reacher_task import ReacherTask
+from .diffusion_task_base import DiffusionTaskBase
+from .diffusion_simple_task import DiffusionSimpleTask
+from .diffusion_arm_task import DiffusionArmTask, DiffusionReacherTask
 
-#__all__=['BaseTask', 'ReacherTask']
+#__all__=['BaseTask', 'ReacherTask', 'DiffusionTaskBase', 'DiffusionSimpleTask', 'DiffusionArmTask', 'DiffusionReacherTask']

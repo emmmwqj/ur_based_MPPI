@@ -1,0 +1,123 @@
+##
+## Diffusion-inspired sampling configuration for simple_reacher
+## Based on DIAL-MPC paper (Equation 7)
+##
+
+# @package _global_
+use_cuda: True
+cuda_device_num: 0
+
+control_dt: 0.1
+control_space: 'acc'
+float_dtype: 'float32'
+state_filter_coeff: 1.0
+cmd_filter_coeff: 1.0
+
+model:
+  dt: 0.0
+  max_action: 0.1
+
+  dt_traj_params:
+    base_dt: 0.1
+    base_ratio: 1.0
+    max_dt: 0.3
+  init_state: [0.0, 0.0]
+  position_bounds: [[0.0, 0.5], [0.0, 0.5]]
+  
+cost:
+  goal_state:
+    vec_weight: [1.0, 1.0]
+    weight: 100.0
+    gaussian_params: {'n':0, 'c':0.2, 's':0.0, 'r':10.0}
+
+  zero_vel:
+    weight: 0.0
+    hinge_val: 0.2
+    gaussian_params: {'n':0, 'c':0.2, 's':0, 'r':1.0}
+    
+  stop_cost:
+    weight: 100.0
+    max_nlimit: 0.05
+    gaussian_params: {'n':0, 'c':0.2, 's':0, 'r':10.0}
+  stop_cost_acc:
+    weight: 100.0
+    max_limit: 0.01
+    gaussian_params: {'n':0, 'c':0.2, 's':0, 'r':10.0}
+    
+  smooth:
+    weight: 0.0 
+    gaussian_params: {'n':0, 'c':0.2, 's':0, 'r':1.0}
+    order: 3
+
+  image_collision:
+    weight: 1000.0 
+    gaussian_params: {'n':0, 'c':1.0, 's':0, 'r':10.0}
+    collision_file: 'collision_maps/collision_map_cem.png'
+    dist_thresh: 0.01
+  state_bound:
+    weight: 100.0 
+    gaussian_params: {'n':0, 'c':1.0, 's':0, 'r':10.0}
+  terminal:
+    weight: 0.0
+    gaussian_params: {'n':0, 'c':1.0, 's':0, 'r':10.0}
+
+mppi:
+  horizon           : 30
+  init_cov          : 0.01
+  gamma             : 0.98
+  n_iters           : 1
+  step_size_mean    : 0.9
+  step_size_cov     : 0.6
+  beta              : 1.0
+  alpha             : 1
+  num_particles     : 500
+  update_cov        : True
+  cov_type          : 'diag_AxA'
+  kappa             : 0.0001
+  null_act_frac     : 0.01
+  sample_mode       : 'mean'
+  base_action       : 'repeat'
+  squash_fn         : 'clamp'
+  hotstart          : True
+  visual_traj       : 'state_seq'
+  sample_params:
+    type: 'multiple'
+    fixed_samples: True
+    sample_ratio: {'halton':0.0, 'halton-knot':1.0, 'random':0.0, 'random-knot':0.0}
+    seed: 0
+    filter_coeffs: None
+    knot_scale: 5
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DIAL-MPC Diffusion-inspired variance scheduling parameters
+# Based on Equation (7) in the DIAL-MPC paper:
+# σ_{i,h} = exp(-(N-i)/(β_1*N) - (H-h)/(β_2*H)) * I
+# ─────────────────────────────────────────────────────────────────────────────
+diffusion:
+  # Number of diffusion optimization iterations (N in Equation 7)
+  # More iterations = better solution but slower
+  n_diffuse: 4
+  
+  # Initial diffusion iterations (for first step, use more iterations)
+  n_diffuse_init: 10
+  
+  # β_1: Iteration-level annealing parameter (Equation 7)
+  # Controls how quickly variance increases across iterations
+  # Larger β_1 → slower growth → more uniform variance across iterations
+  # Typical range: [0.5, 2.0]
+  beta_1: 1.0
+  
+  # β_2: Horizon-level annealing parameter (Equation 7)
+  # Controls how quickly variance increases along the horizon
+  # Larger β_2 → slower growth → more uniform variance across timesteps
+  # Typical range: [0.5, 2.0]
+  beta_2: 1.0
+  
+  # Base sigma multiplier (scales the exponential)
+  sigma_base: 1.0
+  
+  # Minimum sigma (prevent variance from becoming too small)
+  sigma_min: 0.01
+  
+  # Temperature for softmax weighting (higher = more uniform weights)
+  temp_sample: 0.05
