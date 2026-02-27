@@ -25,7 +25,7 @@ MPPI 是一种基于采样的模型预测控制 (MPC) 算法，源自随机最�
 | 论文符号 | 含义 | 默认值 | 配置项 | 说明 |
 |----------|------|--------|--------|------|
 | $H$ | 时间步数 (Horizon) | **30** | `mppi.horizon` | 预测时域长度，30步 × 0.02s = 0.6s |
-| $N$ | 采样粒子数 (Num Particles) | **500** | `mppi.num_particles` | 实际采样 498 + 2特殊粒子 |
+| $N$ | 采样粒子数 (Num Particles) | **500** | `mppi.num_particles` | 实际采样 493 + 1零噪声 + 1最优 + 5零动作 |
 | $K$ | **优化迭代次数 (Iterations)** | **1** | `mppi.n_iters` | 每个控制周期的 MPPI 优化迭代次数 |
 | $\theta_0$ | 初始动作分布 | $\mu=0, \sigma^2=0.005$ | `mppi.init_cov` | 初始均值为零，协方差 0.005 |
 | $M$ | B样条数据点数 (Knots) | **7** | `knot_scale: 4` | $M = \lfloor H / \text{knot\_scale} \rfloor = \lfloor 30/4 \rfloor = 7$ |
@@ -176,9 +176,10 @@ mppi:
     
     Sample N trajectories               num_particles: 500
          ↓                                  ↓
-      N = 500 条轨迹                   498 条 Halton-knot 采样
+      N = 500 条轨迹                   493 条 Halton-knot 采样
                                        + 1 条零噪声 (均值)
                                        + 1 条上次最优
+                                       + 5 条零动作 (null)
                                        
     Each trajectory has H steps         horizon: 30
          ↓                                  ↓
@@ -817,8 +818,8 @@ class KnotSampleLib(object):
     
     注意: 这里的 "knot" 实际上是指数据点，不是 B 样条的节点向量！
     """
-    def __init__(self, horizon=0, d_action=0, n_knots=0, degree=2,  # 实际使用 degree=2
-                 sample_method='halton', **kwargs):
+    def __init__(self, horizon=0, d_action=0, n_knots=0, degree=3,  # 函数默认degree=3
+                 sample_method='halton', **kwargs):                   # MultipleSampleLib传入degree=2
         """
         参数:
             horizon: 时间步数 (30)
@@ -831,7 +832,7 @@ class KnotSampleLib(object):
         self.n_knots = n_knots           # 7 个数据点
         self.horizon = horizon           # 30 个时间步
         self.d_action = d_action         # 6 个关节
-        self.degree = degree             # 2 阶 B 样条 (实际)
+        self.degree = degree             # 函数默认3, 但MultipleSampleLib传入2
         
     def get_samples(self, sample_shape, **kwargs):
         """
@@ -876,7 +877,7 @@ class KnotSampleLib(object):
                 self.samples[i, :, j] = bspline(
                     knot_samples[i, j, :],     # 7 个数据点
                     n=self.horizon,            # 拟合到 30 个点
-                    degree=self.degree         # 2 次 B 样条 (degree=2)
+                    degree=self.degree         # degree=2 (由MultipleSampleLib传入)
                 )
         
         return self.samples  # [N, 30, 6]
@@ -892,7 +893,7 @@ class KnotSampleLib(object):
 from scipy.interpolate import BSpline
 import scipy.interpolate as si
 
-def bspline(c_arr, t_arr=None, n=100, degree=2):  # 实际使用 degree=2
+def bspline(c_arr, t_arr=None, n=100, degree=3):  # 函数默认degree=3
     """
     使用 SciPy 进行 B 样条**拟合**（非直接控制点插值）
     
@@ -900,7 +901,7 @@ def bspline(c_arr, t_arr=None, n=100, degree=2):  # 实际使用 degree=2
         c_arr: 数据点数组（7 个采样值，作为拟合的目标点）
         t_arr: 数据点对应的参数值（默认均匀分布 [0, 1, 2, ..., 6]）
         n: 输出采样点数 (30)
-        degree: 样条阶数 (实际使用 2)
+        degree: 样条阶数 (函数默认3, MultipleSampleLib调用时传入2)
     
     返回:
         拟合后的平滑曲线上均匀采样的 30 个点
@@ -910,23 +911,21 @@ def bspline(c_arr, t_arr=None, n=100, degree=2):  # 实际使用 degree=2
     cv = c_arr.cpu().numpy()  # 7 个数据点
     count = len(cv)
 
-    # Step 1: 为 7 个数据点分配参数值 t = [0, 1, 2, 3, 4, 5, 6]
+    # Step 1: 为 7 个数据点分配参数值
     if t_arr is None:
-        t_arr = np.linspace(0, cv.shape[0], cv.shape[0])  # [0, 1.17, 2.33, 3.5, 4.67, 5.83, 7]
+        t_arr = np.linspace(0, cv.shape[0], cv.shape[0])  # [0.0, 1.167, 2.333, 3.5, 4.667, 5.833, 7.0]
     else:
         t_arr = t_arr.cpu().numpy()
     
     # Step 2: B 样条拟合（关键步骤！）
     # splrep 会自动确定内部节点和控制点，使曲线"逼近"数据点
     # s=0.5 是平滑因子，s>0 表示允许曲线不完全通过数据点
-    spl = si.splrep(t_arr, cv, k=degree, s=0.5)
-    #                ↑     ↑      ↑      ↑
-    #              参数值  数据值  阶数   平滑因子
+spl = si.splrep(t_arr, cv, k=degree, s=0.5)  # degree=2 (实际使用)
+#                ↑     ↑      ↑      ↑
+#              参数值  数据值  阶数   平滑因子
     
     # Step 3: 在参数范围 [0, 7] 内均匀采样 30 个点
-    xx = np.linspace(0, cv.shape[0], n)  # [0, 0.24, 0.48, ..., 7]
-    
-    # Step 4: 在拟合的样条曲线上求值
+    xx = np.linspace(0, cv.shape[0], n)  # [0, 0.24, 0.48, ..., 7]    # Step 4: 在拟合的样条曲线上求值
     samples = si.splev(xx, spl, ext=3)  # ext=3 表示超出范围返回边界值
     
     samples = torch.as_tensor(samples, device=sample_device, dtype=sample_dtype)
@@ -963,7 +962,7 @@ def bspline(c_arr, t_arr=None, n=100, degree=2):  # 实际使用 degree=2
    -0.8 |              * P2                    
         t:  0    1    2    3    4    5    6
         
-                        ↓ si.splrep(t, y, k=3, s=0.5)
+                        ↓ si.splrep(t, y, k=2, s=0.5)
                         
   内部处理：
   ┌─────────────────────────────────────────────────────────────────────────┐
@@ -1007,10 +1006,10 @@ $$S(t) = \sum_{i=0}^{n} P_i B_{i,k}(t)$$
 
 其中：
 - $S(t)$: 时间 $t$ 处的曲线值
-- $P_i$: 第 $i$ 个控制点 (从 Halton 序列采样)
+- $P_i$: 第 $i$ 个系数（由 `splrep` 拟合自动确定，非直接采样的数据点）
 - $B_{i,k}(t)$: $k$ 阶 B 样条基函数
-- $n$: 控制点数量 (7 个)
-- $k$: 样条阶数 (3 次)
+- $n$: 系数数量 (由 `splrep` 自动确定，对于 7 个数据点 + degree=2 通常为 7 个)
+- $k$: 样条阶数 (实际使用 2 次)
 
 **采样维度变化**:
 
@@ -1142,28 +1141,24 @@ def sample_actions(self, state=None):
     
     # Step 1: 从采样库获取噪声轨迹
     # 对于 halton-knot: 返回的是 B 样条插值后的平滑噪声
-    # delta: [N-2, H, A] 其中 N-2 = 498
+    # delta: [N-2, H, A] 其中 N-2 = 493 (null_act_frac=0.01时)
     delta = self.sample_lib.get_samples(
-        sample_shape=self.sample_shape,  # [498]
+        sample_shape=self.sample_shape,  # [493]
         base_seed=self.seed_val + self.num_steps
     )
     
     # Step 2: 添加零噪声序列 (确保均值动作在采样中)
     # Z_seq: [1, H, A] 全零
-    delta = torch.cat((delta, self.Z_seq), dim=0)  # [499, H, A]
+    delta = torch.cat((delta, self.Z_seq), dim=0)  # [494, H, A]
     
-    # Step 3: 协方差缩放 (可选，取决于 cov_type)
-    # 对于 halton-knot + diag_AxA: 按关节维度缩放
-    if self.cov_type == 'diag_AxA':
-        # scale_tril: [A] = [6]
-        scaled_delta = delta * self.scale_tril  # 逐元素相乘
-    elif self.cov_type == 'full_HAxHA':
-        # 完整时空协方差矩阵
+    # Step 3: 协方差缩放
+    # 实际代码统一使用 matmul，通过 full_scale_tril 属性适配不同 cov_type
+    # 对于 diag_AxA: full_scale_tril = torch.diag(scale_tril), 即 [A, A] 对角矩阵
+    # 对于 full_HAxHA: full_scale_tril = scale_tril, 即 [HA, HA] 完整矩阵
+    if self.cov_type == 'full_HAxHA':
         delta = delta.view(delta.shape[0], self.horizon * self.d_action)
-        scaled_delta = torch.matmul(delta, self.full_scale_tril)
-        scaled_delta = scaled_delta.view(delta.shape[0], self.horizon, self.d_action)
-    else:
-        scaled_delta = delta * self.scale_tril
+    scaled_delta = torch.matmul(delta, self.full_scale_tril).view(
+        delta.shape[0], self.horizon, self.d_action)
     
     # Step 4: 加到均值动作
     # mean_action: [H, A] = [30, 6]
@@ -1181,7 +1176,7 @@ def sample_actions(self, state=None):
         append_acts = torch.cat((append_acts, null_act_seqs), dim=0)
     
     # 最终拼接
-    act_seq = torch.cat((act_seq, append_acts), dim=0)  # [500, H, A]
+    act_seq = torch.cat((act_seq, append_acts), dim=0)  # [494+1+5, H, A] = [500, H, A]
     
     return act_seq
 ```
@@ -1391,7 +1386,7 @@ cv = [-0.717, 1.218, -0.110, 0.446, -1.095, 0.772, -0.406]  # 7 个数据点的�
 # 1. 自动确定 B 样条的节点向量 (knot vector)
 # 2. 计算 B 样条系数，使曲线**逼近**（不一定通过）这些数据点
 # 3. s=0.5 是平滑因子，允许曲线不完全通过数据点以获得更平滑的结果
-spl = si.splrep(t_arr, cv, k=3, s=0.5)
+spl = si.splrep(t_arr, cv, k=2, s=0.5)  # k=2: 实际使用二阶B样条
 
 # 在参数范围 [0, 7] 内均匀采样 30 个点
 xx = np.linspace(0, 7, 30)  # [0, 0.24, 0.48, ..., 7]
@@ -1565,7 +1560,7 @@ $$\mathbf{a}_{42,:,2} = [-0.61, -0.40, -0.13, ..., 0.55, 0.30, ..., -0.22, -0.33
    ┌──────────────────────────────────────────────────────────────────────────┐
    │                                                                          │
    │  ┌─────────────────────────────────────────────────┐                     │
-   │  │  B 样条 + Halton 采样粒子                         │  498 个            │
+   │  │  B 样条 + Halton 采样粒子                         │  493 个            │
    │  │  (Halton 数据点 → B样条拟合 → 平滑轨迹)            │                    │
    │  └─────────────────────────────────────────────────┘                     │
    │                                                                          │
@@ -1580,8 +1575,8 @@ $$\mathbf{a}_{42,:,2} = [-0.61, -0.40, -0.13, ..., 0.55, 0.30, ..., -0.22, -0.33
    │  └─────────────────────────────────────────────────┘                     │
    │                                                                          │
    │  ┌─────────────────────────────────────────────────┐                     │
-   │  │  零动作粒子 (可选)                                │  0 个 (默认)       │
-   │  │  a = 0 (用于紧急停止场景)                        │                    │
+   │  │  零动作粒子 (null_act_frac=0.01)                  │  5 个              │
+   │  │  a = 0 (用于紧急停止/制动场景)                    │                    │
    │  └─────────────────────────────────────────────────┘                     │
    │                                                                          │
    └──────────────────────────────────────────────────────────────────────────┘
@@ -1636,7 +1631,7 @@ trajectories = controller.generate_rollouts(state)
                             samples[i,:,j] = bspline(
                                 knot_samples[i,j,:],  # 7 个数据点
                                 n=30,                 # 拟合到 30 个时间步
-                                degree=2              # 2 次 B 样条
+                                degree=2              # 由 MultipleSampleLib 传入
                             )
                     return samples  # [N, 30, 6]
 
