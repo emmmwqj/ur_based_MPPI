@@ -44,19 +44,15 @@ def holonomic_robot(args):
 
     tensor_args = {'device': device, 'dtype': torch.float32}
 
-    # Load diffusion parameters from config
+    # Load full config (mppi + diffusion + cost + model)
     config_dir = os.path.dirname(__file__)
     config_path = os.path.join(config_dir, 'config', 'diffusion_simple_reacher.yml')
-    diffusion_config = load_yaml(config_path)
-    diffusion_params = diffusion_config.get('diffusion', {
-        'n_diffuse': 4, 'n_diffuse_init': 10,
-        'beta_1': 1.0, 'beta_2': 1.0, 'sigma_base': 1.0
-    })
+    full_config = load_yaml(config_path)
 
     # ── Create task (mirrors: simple_task = SimpleTask(...)) ──
     simple_task = DiffusionSimpleTask(
         robot_file="simple_reacher.yml",
-        diffusion_params=diffusion_params,
+        override_config=full_config,
         tensor_args=tensor_args
     )
 
@@ -277,19 +273,20 @@ def plot_traj(traj_log, save_path=None, headless=False):
     # ── (3,1) Per-iteration cost evolution ──
     ax = axs[3, 1]
     ax.set_title('Per-Iteration Cost (each control step)')
-    # Build a matrix: rows = steps, cols = iteration index
-    max_iters = max(len(ic) for ic in traj_log['iteration_costs']) if traj_log['iteration_costs'] else 1
-    cost_matrix = np.full((len(traj_log['iteration_costs']), max_iters), np.nan)
-    for t, ic in enumerate(traj_log['iteration_costs']):
-        for j, c in enumerate(ic):
-            cost_matrix[t, j] = c
-    # Plot each iteration as a line
-    for j in range(max_iters):
-        col = cost_matrix[:, j]
-        valid = ~np.isnan(col)
-        if valid.any():
-            label = f'iter {j}' if max_iters <= 12 else (f'iter {j}' if j in [0, max_iters-1] else None)
-            ax.plot(steps[valid], col[valid], linewidth=1.0, alpha=0.7, label=label)
+    # Skip the first step (n_diffuse_init iterations) and only plot normal steps (n_diffuse iterations)
+    iter_costs_normal = traj_log['iteration_costs'][1:]  # exclude step 0 (init)
+    steps_normal = steps[1:]
+    if iter_costs_normal:
+        n_iters = len(iter_costs_normal[0])  # n_diffuse (e.g. 4)
+        cost_matrix = np.full((len(iter_costs_normal), n_iters), np.nan)
+        for t, ic in enumerate(iter_costs_normal):
+            for j, c in enumerate(ic[:n_iters]):
+                cost_matrix[t, j] = c
+        for j in range(n_iters):
+            col = cost_matrix[:, j]
+            valid = ~np.isnan(col)
+            if valid.any():
+                ax.plot(steps_normal[valid], col[valid], linewidth=1.0, alpha=0.7, label=f'iter {j}')
     ax.set_xlabel('Step')
     ax.set_ylabel('Min Cost')
     ax.set_yscale('log')

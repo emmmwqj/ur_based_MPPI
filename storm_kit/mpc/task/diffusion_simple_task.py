@@ -55,12 +55,22 @@ class DiffusionSimpleTask(DiffusionTaskBase):
     
     def __init__(self, 
                  robot_file='simple_reacher.yml',
-                 diffusion_params=None,
+                 override_config=None,
                  tensor_args={'device': "cpu", 'dtype': torch.float32}):
-        """Initialize DiffusionSimpleTask."""
+        """Initialize DiffusionSimpleTask.
+        
+        Args:
+            robot_file: Base robot config file name (in content/configs/mpc/)
+            override_config: Full config dict from diffusion_simple_reacher.yml.
+                             Its 'mppi' fields override the base robot config,
+                             and its 'diffusion' fields set diffusion parameters.
+            tensor_args: Device and dtype settings.
+        """
         super().__init__(tensor_args=tensor_args)
         
-        # Default diffusion parameters
+        self.override_config = override_config or {}
+        
+        # Extract diffusion parameters with defaults
         self.diffusion_params = {
             'beta_1': 1.0,
             'beta_2': 1.0,
@@ -68,10 +78,8 @@ class DiffusionSimpleTask(DiffusionTaskBase):
             'n_diffuse_init': 10,
             'sigma_base': 1.0
         }
-        
-        # Override with user-provided params
-        if diffusion_params is not None:
-            self.diffusion_params.update(diffusion_params)
+        diffusion_section = self.override_config.get('diffusion', {})
+        self.diffusion_params.update(diffusion_section)
             
         # Initialize controller (DiffusionMPPI)
         self.controller = self.init_diffusion_mppi(robot_file)
@@ -95,6 +103,19 @@ class DiffusionSimpleTask(DiffusionTaskBase):
         
         with open(mpc_yml_file) as file:
             exp_params = yaml.safe_load(file)
+        
+        # Override exp_params with values from diffusion config file
+        # This allows diffusion_simple_reacher.yml to override mppi, cost, model, etc.
+        for section_key in ['mppi', 'cost', 'model']:
+            if section_key in self.override_config:
+                if section_key in exp_params and isinstance(exp_params[section_key], dict):
+                    exp_params[section_key].update(self.override_config[section_key])
+                else:
+                    exp_params[section_key] = self.override_config[section_key]
+        # Also override top-level scalar keys (control_dt, etc.)
+        for key in ['control_dt', 'state_filter_coeff', 'cmd_filter_coeff']:
+            if key in self.override_config:
+                exp_params[key] = self.override_config[key]
             
         # Create rollout function
         rollout_fn = self.get_rollout_fn(
