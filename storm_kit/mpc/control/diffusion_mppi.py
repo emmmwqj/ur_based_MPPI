@@ -98,6 +98,7 @@ class DiffusionMPPI(MPPI):
                  sigma_base=1.0,
                  n_diffuse=4,
                  n_diffuse_init=10,
+                 execute_best=True,
                  # Standard MPPI parameters
                  null_act_frac=0.,
                  rollout_fn=None,
@@ -146,6 +147,7 @@ class DiffusionMPPI(MPPI):
         self.sigma_base = sigma_base
         self.n_diffuse = n_diffuse
         self.n_diffuse_init = n_diffuse_init
+        self.execute_best = execute_best
         
         # Track if this is first optimization step
         self._is_first_step = True
@@ -296,6 +298,10 @@ class DiffusionMPPI(MPPI):
         with torch.amp.autocast('cuda', enabled=True):
             with torch.no_grad():
                 
+                # Track global best across ALL iterations
+                global_best_cost = float('inf')
+                global_best_traj = None
+                
                 # ── Phase 1: Diffusion iterations (i = N-1 down to 1) ──
                 # Use DIAL-MPC direct-noise sampling, update mean only
                 for iter_idx in range(n_total - 1, 0, -1):
@@ -314,7 +320,13 @@ class DiffusionMPPI(MPPI):
                     self._diffusion_update_mean(trajectory)
                     
                     info['rollout_time'] += trajectory['rollout_time']
-                    info['iteration_costs'].append(self.total_costs.min().item())
+                    iter_min_cost = self.total_costs.min().item()
+                    info['iteration_costs'].append(iter_min_cost)
+                    
+                    # Update global best
+                    if iter_min_cost < global_best_cost:
+                        global_best_cost = iter_min_cost
+                        global_best_traj = self.best_traj.clone()
                 
                 # ── Phase 2: Final STORM iteration (i = 0) ──
                 # Use STORM's native sampling with current scale_tril/cov_action
@@ -328,10 +340,24 @@ class DiffusionMPPI(MPPI):
                     self._update_distribution(trajectory)
                 
                 info['rollout_time'] += trajectory['rollout_time']
-                info['iteration_costs'].append(self.total_costs.min().item())
+                iter_min_cost = self.total_costs.min().item()
+                info['iteration_costs'].append(iter_min_cost)
+                
+                # Update global best with Phase 2 result
+                if iter_min_cost < global_best_cost:
+                    global_best_cost = iter_min_cost
+                    global_best_traj = self.best_traj.clone()
 
         self.trajectories = trajectory
-        curr_action_seq = self._get_action_seq(mode=self.sample_mode)
+        
+        # Choose execution mode based on execute_best flag
+        # mean_action is always updated via weighted average for next step's sampling center
+        if self.execute_best and global_best_traj is not None:
+            # Execute the global best particle (lowest cost across all iterations)
+            curr_action_seq = global_best_traj
+        else:
+            # Execute the weighted-average mean_action (original STORM behavior)
+            curr_action_seq = self._get_action_seq(mode=self.sample_mode)
         
         value = 0.0
         if calc_val:

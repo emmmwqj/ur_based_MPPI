@@ -121,3 +121,8 @@ diffusion:
   
   # Temperature for softmax weighting (higher = more uniform weights)
   temp_sample: 0.05
+
+  # Execute best particle or mean action?
+  # True  = execute the lowest-cost particle across ALL iterations (best_traj)
+  # False = execute the weighted-average mean_action (original STORM behavior)
+  execute_best: False # 执行 best particle or mean action

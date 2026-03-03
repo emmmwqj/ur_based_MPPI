@@ -147,6 +147,7 @@ class DiffusionSimpleTask(DiffusionTaskBase):
         mppi_params['n_diffuse'] = self.diffusion_params['n_diffuse']
         mppi_params['n_diffuse_init'] = self.diffusion_params['n_diffuse_init']
         mppi_params['sigma_base'] = self.diffusion_params['sigma_base']
+        mppi_params['execute_best'] = self.diffusion_params.get('execute_best', True)
         
         # Create DiffusionMPPI controller
         controller = DiffusionMPPI(**mppi_params)
