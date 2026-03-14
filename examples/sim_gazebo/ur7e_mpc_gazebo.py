@@ -41,10 +41,102 @@ except ImportError:
     sys.exit(1)
 
 # STORM imports
-from storm_kit.util_file import get_gym_configs_path, get_mpc_configs_path, join_path, get_assets_path
-from storm_kit.mpc.task.reacher_task import ReacherTask
+from storm_kit.util_file import get_gym_configs_path, get_mpc_configs_path, join_path
+from storm_kit.mpc.rollout.arm_reacher import ArmReacher
+from storm_kit.mpc.control import MPPI
+from storm_kit.mpc.utils.state_filter import JointStateFilter
+from storm_kit.mpc.utils.mpc_process_wrapper import ControlProcess
+from storm_kit.mpc.task.task_base import BaseTask
 
 np.set_printoptions(precision=3, suppress=True)
+
+
+class GazeboReacherTask(BaseTask):
+    """Gazebo 专用 ReacherTask，支持加载 examples/sim_gazebo/config 下的绝对路径配置。"""
+
+    def __init__(self, task_file, robot_file, world_file, tensor_args):
+        super().__init__(tensor_args=tensor_args)
+        self.controller = self.init_mppi(task_file, robot_file, world_file)
+        self.init_aux()
+
+    def get_rollout_fn(self, **kwargs):
+        return ArmReacher(**kwargs)
+
+    def init_mppi(self, task_file, robot_file, world_file):
+        if os.path.isabs(robot_file):
+            robot_yml = robot_file
+        else:
+            robot_yml = join_path(get_gym_configs_path(), robot_file)
+
+        with open(robot_yml) as f:
+            robot_params = yaml.safe_load(f)
+
+        if os.path.isabs(world_file):
+            world_yml = world_file
+        else:
+            world_yml = join_path(get_gym_configs_path(), world_file)
+
+        with open(world_yml) as f:
+            world_params = yaml.safe_load(f)
+
+        if os.path.isabs(task_file):
+            mpc_yml = task_file
+        else:
+            mpc_yml = join_path(get_mpc_configs_path(), task_file)
+
+        with open(mpc_yml) as f:
+            exp_params = yaml.safe_load(f)
+
+        exp_params['robot_params'] = exp_params['model']
+
+        rollout_fn = self.get_rollout_fn(
+            exp_params=exp_params,
+            tensor_args=self.tensor_args,
+            world_params=world_params
+        )
+
+        mppi_params = exp_params['mppi']
+        dynamics_model = rollout_fn.dynamics_model
+        mppi_params['d_action'] = dynamics_model.d_action
+        mppi_params['action_lows'] = -exp_params['model']['max_acc'] * torch.ones(
+            dynamics_model.d_action, **self.tensor_args
+        )
+        mppi_params['action_highs'] = exp_params['model']['max_acc'] * torch.ones(
+            dynamics_model.d_action, **self.tensor_args
+        )
+
+        init_q = torch.tensor(exp_params['model']['init_state'], **self.tensor_args)
+        init_action = torch.zeros(
+            (mppi_params['horizon'], dynamics_model.d_action),
+            **self.tensor_args
+        )
+        init_action[:, :] += init_q
+
+        if exp_params['control_space'] == 'acc':
+            mppi_params['init_mean'] = init_action * 0.0
+        elif exp_params['control_space'] == 'pos':
+            mppi_params['init_mean'] = init_action
+
+        mppi_params['rollout_fn'] = rollout_fn
+        mppi_params['tensor_args'] = self.tensor_args
+
+        controller = MPPI(**mppi_params)
+        self.exp_params = exp_params
+
+        return controller
+
+    def init_aux(self):
+        self.state_filter = JointStateFilter(
+            filter_coeff=self.exp_params['state_filter_coeff'],
+            dt=self.exp_params['control_dt']
+        )
+        self.command_filter = JointStateFilter(
+            filter_coeff=self.exp_params['cmd_filter_coeff'],
+            dt=self.exp_params['control_dt']
+        )
+        self.control_process = ControlProcess(self.controller)
+        self.n_dofs = self.controller.rollout_fn.dynamics_model.n_dofs
+        self.zero_acc = np.zeros(self.n_dofs)
 
 
 class GazeboRobotInterface(Node):
@@ -174,15 +266,10 @@ def mpc_control_main(args):
     # 1. 加载配置
     # =========================================================================
     
-    # 使用 STORM 原有配置
-    robot_file = 'ur7e_isaacsim.yml'
-    task_file = 'ur7e_reacher_isaacsim.yml'
-    world_file = 'collision_primitives_3d.yml'
-    
-    # 也可以使用 Gazebo 专用配置
-    gazebo_config_path = os.path.join(
-        STORM_ROOT, 'examples/sim_gazebo/config/ur7e_gazebo.yml'
-    )
+    config_dir = os.path.join(os.path.dirname(__file__), 'config')
+    robot_file = os.path.join(config_dir, 'ur7e_robot_gazebo.yml')
+    task_file = os.path.join(config_dir, 'ur7e_reacher_gazebo.yml')
+    world_file = os.path.join(config_dir, 'collision_world_gazebo.yml')
     
     print(f"\n加载配置文件...")
     print(f"  Robot: {robot_file}")
@@ -190,8 +277,7 @@ def mpc_control_main(args):
     print(f"  World: {world_file}")
     
     # 加载机器人配置
-    robot_yml_path = join_path(get_gym_configs_path(), robot_file)
-    with open(robot_yml_path) as f:
+    with open(robot_file) as f:
         robot_params = yaml.safe_load(f)
     
     sim_params = robot_params.get('sim_params', {})
@@ -248,7 +334,7 @@ def mpc_control_main(args):
                    'dtype': torch.float32}
     
     # 创建 MPC 控制器
-    mpc = ReacherTask(task_file, robot_file, world_file, tensor_args)
+    mpc = GazeboReacherTask(task_file, robot_file, world_file, tensor_args)
     
     # 获取 MPC 控制周期
     mpc_control_dt = mpc.exp_params.get('control_dt', 0.02)
