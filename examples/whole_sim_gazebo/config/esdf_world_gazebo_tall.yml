@@ -1,0 +1,11 @@
+# ============================================================================
+# Whole Gazebo Tall - 环境碰撞来源改为 nvblox ESDF snapshot
+# ============================================================================
+
+world_model:
+  source: esdf_snapshot
+  esdf_snapshot_path: '/home/wqj/perception_D435i/src/sim_nvblox/result/tall_esdf_snapshot.npz'
+  interpolation: 'trilinear'
+  invalid_esdf_value: 100.0
+  require_valid_neighbor: True
+  query_frame_translation_world: [0.0, 0.0, 0.0]
