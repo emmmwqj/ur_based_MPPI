@@ -40,10 +40,18 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INITIAL_POSITIONS_FILE="${SCRIPT_DIR}/config/initial_positions.yaml"
 
+# 默认不启动 RViz，如需联动启动可传 --rviz
+LAUNCH_RVIZ=false
+for arg in "$@"; do
+    if [[ "$arg" == "--rviz" ]]; then
+        LAUNCH_RVIZ=true
+    fi
+done
+
 # 启动 Gazebo 仿真
 ros2 launch ur_simulation_gazebo ur_sim_control.launch.py \
     ur_type:=ur7e \
     initial_joint_controller:=forward_position_controller \
     initial_positions_file:="${INITIAL_POSITIONS_FILE}" \
-    launch_rviz:=true \
+    launch_rviz:="${LAUNCH_RVIZ}" \
     gazebo_gui:=true

@@ -25,6 +25,7 @@ echo "话题说明:"
 echo "  /target_marker    - 红球: 目标位置"
 echo "  /ee_marker        - 绿球: 末端执行器位置"
 echo "  /obstacle_markers - 蓝球: 障碍物"
+echo "  /mppi_top_traj_markers - 红线: MPPI top-5 预测轨迹"
 echo ""
 
 # 启动 RViz

@@ -54,7 +54,7 @@ model:
 cost:
   goal_pose:
     vec_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-    weight: [15.0, 100.0]
+    weight: [0.0, 200.0] #100
     position_gaussian_params: {'n': 0, 'c': 0.0, 's': 0.0, 'r': 10.0}
     orientation_gaussian_params: {'n': 0, 'c': 0.0, 's': 0.0, 'r': 10.0}
     hinge_val: -1
@@ -80,7 +80,7 @@ cost:
     gaussian_params: {'n': 0, 'c': 0.0, 's': 0, 'r': 10.0}
 
   robot_self_collision:
-    weight: 5000.0
+    weight: 0.0
     distance_threshold: 0.05
     gaussian_params: {'n': 0, 'c': 0.0, 's': 0, 'r': 10.0}
 
@@ -145,7 +145,7 @@ mppi:
   step_size_cov: 0.7
   beta: 1.0
   alpha: 1
-  num_particles: 500
+  num_particles: 1000
   update_cov: False
   cov_type: 'diag_AxA'
   kappa: 0.005

@@ -8,4 +8,5 @@ world_model:
   interpolation: 'trilinear'
   invalid_esdf_value: 100.0
   require_valid_neighbor: True
+  safety_margin_world: 0.00
   query_frame_translation_world: [0.0, 0.0, 0.0]

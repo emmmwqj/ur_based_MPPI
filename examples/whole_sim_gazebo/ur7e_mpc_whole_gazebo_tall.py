@@ -27,7 +27,7 @@ try:
     from rclpy.executors import MultiThreadedExecutor
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, ReliabilityPolicy
-    from geometry_msgs.msg import Point, PoseStamped
+    from geometry_msgs.msg import PoseStamped
     from sensor_msgs.msg import JointState
     from std_msgs.msg import ColorRGBA, Float64MultiArray
     from visualization_msgs.msg import Marker, MarkerArray
@@ -45,6 +45,12 @@ from storm_kit.mpc.utils.mpc_process_wrapper import ControlProcess
 from storm_kit.mpc.utils.state_filter import JointStateFilter
 
 from examples.whole_sim_gazebo.arm_reacher_esdf import ArmReacherESDF
+from examples.whole_sim_gazebo.gazebo_obstacle_utils import (
+    count_primitive_obstacles,
+    iter_primitive_obstacles,
+    load_primitive_world,
+    spawn_gazebo_obstacles,
+)
 
 np.set_printoptions(precision=3, suppress=True)
 
@@ -109,6 +115,27 @@ def _shutdown_control_process(control_process, join_timeout: float = 2.0) -> Non
     result_queue = getattr(control_process, 'result_queue', None)
     if result_queue is not None:
         _close_mp_queue(result_queue)
+
+
+def _restart_control_process(mpc, join_timeout: float = 0.2) -> None:
+    old_control_process = getattr(mpc, 'control_process', None)
+    _shutdown_control_process(old_control_process, join_timeout=join_timeout)
+    mpc.control_process = ControlProcess(mpc.controller)
+
+
+def _reset_control_process_timing(control_process, t_step: float, control_dt: float) -> None:
+    control_process.command = None
+    control_process.command_tstep = control_process.traj_tstep + t_step
+    control_process.prev_mpc_tstep = max(0.0, t_step - control_dt)
+    control_process.mpc_dt = control_dt
+    _drain_mp_queue(getattr(control_process, 'result_queue', None))
+    _drain_mp_queue(getattr(control_process, 'opt_queue', None))
+
+
+def _recover_command(mpc, t_step: float, state: dict, control_dt: float):
+    control_process = mpc.control_process
+    _reset_control_process_timing(control_process, t_step, control_dt)
+    return mpc.get_command(t_step, state, control_dt=control_dt, WAIT=True)
 
 
 def _quat_xyzw_to_rot_matrix(quat_xyzw: np.ndarray) -> np.ndarray:
@@ -263,8 +290,7 @@ class GazeboRobotInterface(Node):
         self.prev_velocities = None
         self.prev_time = None
         self.state_received = False
-        self.scene_points_msg = []
-        self.scene_voxel_size = 0.03
+        self.obstacle_world = None
         self.target_position_world = None
 
         qos = QoSProfile(depth=10)
@@ -365,18 +391,12 @@ class GazeboRobotInterface(Node):
             self.target_position_world = None
         return target_position
 
-    def set_scene_points(self, scene_points_world: np.ndarray, voxel_size: float):
-        self.scene_voxel_size = max(float(voxel_size), 0.01)
-        self.scene_points_msg = []
-        for point in np.asarray(scene_points_world, dtype=np.float32):
-            point_msg = Point()
-            point_msg.x = float(point[0])
-            point_msg.y = float(point[1])
-            point_msg.z = float(point[2])
-            self.scene_points_msg.append(point_msg)
+    def set_obstacles(self, obstacle_world: dict):
+        self.obstacle_world = obstacle_world
+        n_spheres, n_cubes = count_primitive_obstacles(obstacle_world, include_ground=False)
         self.get_logger().info(
-            '已加载 ESDF 场景可视化点: %d, voxel_size=%.3f'
-            % (len(self.scene_points_msg), self.scene_voxel_size)
+            '已加载 primitive 障碍物配置: spheres=%d cubes=%d'
+            % (n_spheres, n_cubes)
         )
 
     def publish_ee_pose(self, position_world: np.ndarray):
@@ -394,22 +414,43 @@ class GazeboRobotInterface(Node):
         stamp = self.get_clock().now().to_msg()
         marker_id = 0
 
-        if self.scene_points_msg:
-            obstacle_marker = Marker()
-            obstacle_marker.header.frame_id = 'world'
-            obstacle_marker.header.stamp = stamp
-            obstacle_marker.ns = 'obstacles'
-            obstacle_marker.id = marker_id
-            obstacle_marker.type = Marker.CUBE_LIST
-            obstacle_marker.action = Marker.ADD
-            obstacle_marker.pose.orientation.w = 1.0
-            obstacle_marker.scale.x = self.scene_voxel_size
-            obstacle_marker.scale.y = self.scene_voxel_size
-            obstacle_marker.scale.z = self.scene_voxel_size
-            obstacle_marker.color = ColorRGBA(r=0.5, g=0.5, b=0.8, a=0.6)
-            obstacle_marker.points = self.scene_points_msg
-            marker_array.markers.append(obstacle_marker)
-            marker_id += 1
+        if self.obstacle_world is not None:
+            for obstacle in iter_primitive_obstacles(self.obstacle_world, include_ground=False):
+                obstacle_marker = Marker()
+                obstacle_marker.header.frame_id = 'world'
+                obstacle_marker.header.stamp = stamp
+                obstacle_marker.ns = 'obstacles'
+                obstacle_marker.id = marker_id
+                obstacle_marker.action = Marker.ADD
+
+                if obstacle['kind'] == 'sphere':
+                    obstacle_marker.type = Marker.SPHERE
+                    obstacle_marker.pose.position.x = obstacle['position'][0]
+                    obstacle_marker.pose.position.y = obstacle['position'][1]
+                    obstacle_marker.pose.position.z = obstacle['position'][2]
+                    obstacle_marker.pose.orientation.w = 1.0
+                    obstacle_marker.scale.x = obstacle['radius'] * 2.0
+                    obstacle_marker.scale.y = obstacle['radius'] * 2.0
+                    obstacle_marker.scale.z = obstacle['radius'] * 2.0
+                    obstacle_marker.color = ColorRGBA(r=0.8, g=0.2, b=0.2, a=0.75)
+                else:
+                    obstacle_marker.type = Marker.CUBE
+                    pose = obstacle['pose']
+                    dims = obstacle['dims']
+                    obstacle_marker.pose.position.x = pose[0]
+                    obstacle_marker.pose.position.y = pose[1]
+                    obstacle_marker.pose.position.z = pose[2]
+                    obstacle_marker.pose.orientation.x = pose[3]
+                    obstacle_marker.pose.orientation.y = pose[4]
+                    obstacle_marker.pose.orientation.z = pose[5]
+                    obstacle_marker.pose.orientation.w = pose[6]
+                    obstacle_marker.scale.x = dims[0]
+                    obstacle_marker.scale.y = dims[1]
+                    obstacle_marker.scale.z = dims[2]
+                    obstacle_marker.color = ColorRGBA(r=0.5, g=0.5, b=0.8, a=0.75)
+
+                marker_array.markers.append(obstacle_marker)
+                marker_id += 1
 
         goal_marker = Marker()
         goal_marker.header.frame_id = 'world'
@@ -488,14 +529,17 @@ def mpc_control_main(args):
         robot_file = os.path.join(config_dir, 'ur7e_robot_gazebo.yml')
         task_file = os.path.join(config_dir, 'ur7e_reacher_whole_gazebo_tall.yml')
         world_file = os.path.join(config_dir, 'esdf_world_gazebo_tall.yml')
+        obstacle_file = os.path.join(config_dir, 'collision_world_gazebo_tall.yml')
 
         _log('\n加载配置文件...')
         _log(f'  Robot: {robot_file}')
         _log(f'  Task:  {task_file}')
         _log(f'  World: {world_file}')
+        _log(f'  Obstacles: {obstacle_file}')
 
         with open(robot_file) as f:
             robot_params = yaml.safe_load(f)
+        obstacle_world = load_primitive_world(obstacle_file)
         sim_params = robot_params.get('sim_params', {})
         robot_pose = sim_params.get('robot_pose', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
         robot_pos_world = np.array(robot_pose[:3], dtype=np.float64)
@@ -534,6 +578,11 @@ def mpc_control_main(args):
             return exit_code
 
         _log('已连接到 Gazebo 机器人!')
+        robot.set_obstacles(obstacle_world)
+        if spawn_gazebo_obstacles(robot, obstacle_world, model_prefix='whole_tall', include_ground=False):
+            _log('Gazebo 真实障碍物已生成: 使用 primitive 高墙/球体模型')
+        else:
+            _log('警告: Gazebo 真实障碍物未完整生成，请检查 /spawn_entity 与 /delete_entity 服务')
 
         device = 'cuda' if args.cuda else 'cpu'
         _log('\n初始化 STORM MPC 控制器...')
@@ -563,13 +612,10 @@ def mpc_control_main(args):
         goal_ee_quat = np.ravel(rollout_fn.goal_ee_quat.detach().cpu().numpy())
         current_goal_world = transform_point(robot_pos_world, robot_quat_xyzw, goal_ee_pos_robot)
         current_goal_robot = goal_ee_pos_robot.copy()
-
-        scene_points_world = build_esdf_surface_points(rollout_fn.esdf_collision_cost.snapshot)
-        scene_voxel_size = float(rollout_fn.esdf_collision_cost.snapshot.voxel_size)
-        robot.set_scene_points(scene_points_world, scene_voxel_size)
+        n_spheres, n_cubes = count_primitive_obstacles(obstacle_world, include_ground=False)
         _log(
-            'RViz scene markers prepared: points=%d voxel_size=%.3f'
-            % (scene_points_world.shape[0], scene_voxel_size)
+            'RViz scene markers prepared: primitive spheres=%d cubes=%d'
+            % (n_spheres, n_cubes)
         )
         _log(
             '初始目标末端位置(世界坐标系): [%.3f, %.3f, %.3f]'
@@ -625,12 +671,29 @@ def mpc_control_main(args):
                                 current_goal_robot[2],
                             )
                         )
+                        try:
+                            command = _recover_command(mpc, t, current_state, mpc_control_dt)
+                            _log('[目标更新] 已同步重规划并重置 MPC 时间基准')
+                        except Exception as sync_exc:
+                            _log(f'[MPC异常] 目标更新后的同步重规划失败: {sync_exc}')
+                            time.sleep(control_dt)
+                            continue
+                    else:
+                        command = None
+                else:
+                    command = None
 
-                try:
-                    command = mpc.get_command(t, current_state, control_dt=mpc_control_dt, WAIT=True)
-                except Exception as exc:
-                    _log(f'MPC 异常: {exc}')
-                    continue
+                if command is None:
+                    try:
+                        command = mpc.get_command(t, current_state, control_dt=mpc_control_dt, WAIT=True)
+                    except (IndexError, RuntimeError, ValueError) as exc:
+                        _log('[MPC恢复] 同步取命令失败 (%s)，重置控制进程时间基准后重规划' % exc)
+                        try:
+                            command = _recover_command(mpc, t, current_state, mpc_control_dt)
+                        except Exception as recover_exc:
+                            _log(f'[MPC异常] 同步重规划失败: {recover_exc}')
+                            time.sleep(control_dt)
+                            continue
 
                 if command is not None and 'position' in command:
                     target_positions = command['position']
@@ -660,7 +723,7 @@ def mpc_control_main(args):
                 loop_count += 1
                 if loop_count % 50 == 0:
                     current_pos = current_state['position']
-                    error = np.linalg.norm(current_pos - goal_joint_positions)
+                    ee_pos_error = np.linalg.norm(ee_pos_world - current_goal_world)
                     valid_ratio = getattr(
                         mpc.controller.rollout_fn.esdf_collision_cost,
                         'last_valid_ratio',
@@ -670,7 +733,7 @@ def mpc_control_main(args):
                         f'[{loop_count:5d}] t={t:.2f}s | '
                         f'q=[{current_pos[0]:+.2f}, {current_pos[1]:+.2f}, {current_pos[2]:+.2f}, '
                         f'{current_pos[3]:+.2f}, {current_pos[4]:+.2f}, {current_pos[5]:+.2f}] | '
-                        f'error={error:.4f} | esdf_valid_ratio={100.0 * valid_ratio:.1f}%'
+                        f'ee_pos_error={ee_pos_error:.4f}m | esdf_valid_ratio={100.0 * valid_ratio:.1f}%'
                     )
 
                 t += control_dt

@@ -52,6 +52,7 @@ class ESDFCollisionCost(nn.Module):
         self.last_valid_ratio = 0.0
         self._has_logged_forward = False
         self.snapshot_path = None
+        self.safety_margin = 0.0
 
         robot_collision_params = copy.deepcopy(robot_params["robot_collision_params"])
         robot_collision_params["urdf"] = join_path(get_assets_path(), robot_collision_params["urdf"])
@@ -67,17 +68,19 @@ class ESDFCollisionCost(nn.Module):
             invalid_esdf_value=world_model.get("invalid_esdf_value", None),
             require_valid_neighbor=bool(world_model.get("require_valid_neighbor", True)),
         )
+        self.safety_margin = float(world_model.get("safety_margin_world", 0.0))
         self.query_frame_translation = torch.as_tensor(
             world_model.get("query_frame_translation_world", [0.0, 0.0, 0.0]),
             **self.tensor_args,
         )
         _log("Environment collision source: ESDF snapshot")
         _log(
-            "Using ESDF collision: snapshot_path=%s threshold=%.3f clamp_max=%.3f"
+            "Using ESDF collision: snapshot_path=%s threshold=%.3f clamp_max=%.3f safety_margin=%.3f"
             % (
                 self.snapshot_path,
                 self.distance_threshold,
                 self.clamp_max,
+                self.safety_margin,
             )
         )
         _log(
@@ -127,7 +130,8 @@ class ESDFCollisionCost(nn.Module):
             radii = radii.view(batch_horizon, -1)
 
             # nvblox ESDF: free space positive, obstacle interior negative.
-            penetration = radii - esdf_values
+            # Subtract a safety margin so the controller treats obstacles as slightly larger.
+            penetration = radii - (esdf_values - self.safety_margin)
             link_penetration[:, link_idx] = torch.max(penetration, dim=-1)[0]
 
             total_queries += int(valid_mask.numel())

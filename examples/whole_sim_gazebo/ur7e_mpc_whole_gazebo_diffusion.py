@@ -34,10 +34,17 @@ except ImportError:
 
 from examples.whole_sim_gazebo.ur7e_mpc_whole_gazebo import (
     _log,
-    build_esdf_surface_points,
-    GazeboRobotInterface,
     inv_transform_point,
     transform_point,
+)
+from examples.whole_sim_gazebo.ur7e_mpc_whole_gazebo_tall import (
+    GazeboRobotInterface,
+    _recover_command,
+)
+from examples.whole_sim_gazebo.gazebo_obstacle_utils import (
+    count_primitive_obstacles,
+    load_primitive_world,
+    spawn_gazebo_obstacles,
 )
 from examples.whole_sim_gazebo.whole_gazebo_diffusion_task import WholeGazeboDiffusionReacherTask
 
@@ -69,14 +76,17 @@ def mpc_control_main(args):
         robot_file = os.path.join(config_dir, 'ur7e_robot_gazebo.yml')
         task_file = os.path.join(config_dir, 'ur7e_reacher_whole_gazebo_diffusion_tall.yml')
         world_file = os.path.join(config_dir, 'esdf_world_gazebo_tall.yml')
+        obstacle_file = os.path.join(config_dir, 'collision_world_gazebo_tall.yml')
 
         _log('\n加载配置文件...')
         _log(f'  Robot: {robot_file}')
         _log(f'  Task:  {task_file}')
         _log(f'  World: {world_file}')
+        _log(f'  Obstacles: {obstacle_file}')
 
         with open(robot_file) as f:
             robot_params = yaml.safe_load(f)
+        obstacle_world = load_primitive_world(obstacle_file)
         sim_params = robot_params.get('sim_params', {})
         robot_pose = sim_params.get('robot_pose', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
         robot_pos_world = np.array(robot_pose[:3], dtype=np.float64)
@@ -115,6 +125,15 @@ def mpc_control_main(args):
             return exit_code
 
         _log('已连接到 Gazebo 机器人!')
+        robot.set_obstacles(obstacle_world)
+        n_world_spheres, n_world_cubes = count_primitive_obstacles(obstacle_world, include_ground=False)
+        if spawn_gazebo_obstacles(robot, obstacle_world, model_prefix='whole_tall_diff', include_ground=False):
+            _log(
+                'Gazebo 真实障碍物已生成: spheres=%d cubes=%d'
+                % (n_world_spheres, n_world_cubes)
+            )
+        else:
+            _log('警告: Gazebo 真实障碍物未完整生成，请检查 /spawn_entity 与 /delete_entity 服务')
 
         device = 'cuda' if args.cuda else 'cpu'
         _log('\n初始化 Diffusion MPC 控制器...')
@@ -145,12 +164,10 @@ def mpc_control_main(args):
         current_goal_world = transform_point(robot_pos_world, robot_quat_xyzw, goal_ee_pos_robot)
         current_goal_robot = goal_ee_pos_robot.copy()
 
-        scene_points_world = build_esdf_surface_points(rollout_fn.esdf_collision_cost.snapshot)
-        scene_voxel_size = float(rollout_fn.esdf_collision_cost.snapshot.voxel_size)
-        robot.set_scene_points(scene_points_world, scene_voxel_size)
+        n_spheres, n_cubes = count_primitive_obstacles(obstacle_world, include_ground=False)
         _log(
-            'RViz scene markers prepared: points=%d voxel_size=%.3f'
-            % (scene_points_world.shape[0], scene_voxel_size)
+            'RViz scene markers prepared: primitive spheres=%d cubes=%d'
+            % (n_spheres, n_cubes)
         )
         _log(
             '初始目标末端位置(世界坐标系): [%.3f, %.3f, %.3f]'
@@ -206,12 +223,29 @@ def mpc_control_main(args):
                                 current_goal_robot[2],
                             )
                         )
+                        try:
+                            command = _recover_command(mpc, t, current_state, mpc_control_dt)
+                            _log('[目标更新] 已同步重规划并重置 Diffusion MPC 时间基准')
+                        except Exception as sync_exc:
+                            _log(f'[Diffusion MPC异常] 目标更新后的同步重规划失败: {sync_exc}')
+                            time.sleep(control_dt)
+                            continue
+                    else:
+                        command = None
+                else:
+                    command = None
 
-                try:
-                    command = mpc.get_command(t, current_state, control_dt=mpc_control_dt, WAIT=True)
-                except Exception as exc:
-                    _log(f'Diffusion MPC 异常: {exc}')
-                    continue
+                if command is None:
+                    try:
+                        command = mpc.get_command(t, current_state, control_dt=mpc_control_dt, WAIT=True)
+                    except (IndexError, RuntimeError, ValueError) as exc:
+                        _log('[Diffusion MPC恢复] 同步取命令失败 (%s)，重置控制进程时间基准后重规划' % exc)
+                        try:
+                            command = _recover_command(mpc, t, current_state, mpc_control_dt)
+                        except Exception as recover_exc:
+                            _log(f'[Diffusion MPC异常] 同步重规划失败: {recover_exc}')
+                            time.sleep(control_dt)
+                            continue
 
                 if command is not None and 'position' in command:
                     target_positions = command['position']
@@ -241,7 +275,7 @@ def mpc_control_main(args):
                 loop_count += 1
                 if loop_count % 50 == 0:
                     current_pos = current_state['position']
-                    error = np.linalg.norm(current_pos - goal_joint_positions)
+                    ee_pos_error = np.linalg.norm(ee_pos_world - current_goal_world)
                     valid_ratio = getattr(
                         mpc.controller.rollout_fn.esdf_collision_cost,
                         'last_valid_ratio',
@@ -256,7 +290,7 @@ def mpc_control_main(args):
                         f'[{loop_count:5d}] t={t:.2f}s | '
                         f'q=[{current_pos[0]:+.2f}, {current_pos[1]:+.2f}, {current_pos[2]:+.2f}]'
                         f' | q4-6=[{current_pos[3]:+.2f}, {current_pos[4]:+.2f}, {current_pos[5]:+.2f}]'
-                        f' | error={error:.4f}'
+                        f' | ee_pos_error={ee_pos_error:.4f}m'
                         f' | esdf_valid_ratio={100.0 * valid_ratio:.1f}%'
                         f' | diff_sigma={mean_sigma:.4f}'
                         f' | diff_best_cost={best_cost:.4f}'
