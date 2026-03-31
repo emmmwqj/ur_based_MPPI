@@ -1,0 +1,14 @@
+# ============================================================================
+# UR7e Gazebo / headless compare scene - easy reaching
+# ============================================================================
+# Keeps only the ground plane so the controller solves a near obstacle-free
+# reaching task while preserving the same world-file plumbing as the other
+# scenes.
+
+world_model:
+  coll_objs:
+    sphere: {}
+    cube:
+      ground:
+        dims: [2.0, 2.0, 0.2]
+        pose: [0.0, 0.0, -0.1, 0, 0, 0, 1.0]

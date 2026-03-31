@@ -1,0 +1,17 @@
+# ============================================================================
+# UR7e Gazebo / headless compare scene - single obstacle
+# ============================================================================
+# A single centered box plus the ground plane. This is used as the "obstacle"
+# tier for the first baseline-vs-SAGE comparison round.
+
+world_model:
+  coll_objs:
+    sphere: {}
+    cube:
+      obstacle:
+        dims: [0.18, 0.18, 0.50]
+        pose: [0.42, 0.00, 0.25, 0, 0, 0, 1.0]
+
+      ground:
+        dims: [2.0, 2.0, 0.2]
+        pose: [0.0, 0.0, -0.1, 0, 0, 0, 1.0]
