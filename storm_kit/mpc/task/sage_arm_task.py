@@ -1,0 +1,173 @@
+#
+# MIT License
+#
+# Copyright (c) 2020-2021 NVIDIA CORPORATION.
+#
+
+import os
+
+import numpy as np
+import torch
+import yaml
+
+from ...util_file import get_gym_configs_path, get_mpc_configs_path, join_path
+from ..control.sage_mppi import SAGE_MPPI
+from ..rollout.arm_base import ArmBase
+from ..utils.mpc_process_wrapper import ControlProcess
+from ..utils.state_filter import JointStateFilter
+from .task_base import BaseTask
+
+
+class SageArmTask(BaseTask):
+    """
+    Standalone task assembly for SAGE-MPPI.
+
+    This mirrors the baseline arm task wiring, but instantiates the new
+    standalone SAGE controller without modifying any baseline task/controller.
+    """
+
+    def __init__(
+        self,
+        task_file="ur10.yml",
+        robot_file="ur10_reacher.yml",
+        world_file="collision_env.yml",
+        tensor_args={"device": "cpu", "dtype": torch.float32},
+    ):
+        super().__init__(tensor_args=tensor_args)
+        self.latest_task_stats = {}
+        self.success_threshold = None
+        self.controller = self.init_sage_mppi(task_file, robot_file, world_file)
+        self.init_aux()
+
+    def _resolve_yaml(self, path, base_dir_getter):
+        if os.path.isabs(path):
+            return path
+        return join_path(base_dir_getter(), path)
+
+    def get_rollout_fn(self, **kwargs):
+        return ArmBase(**kwargs)
+
+    def init_sage_mppi(self, task_file, robot_file, world_file):
+        robot_yml = self._resolve_yaml(robot_file, get_gym_configs_path)
+        world_yml = self._resolve_yaml(world_file, get_gym_configs_path)
+        task_yml = self._resolve_yaml(task_file, get_mpc_configs_path)
+
+        with open(robot_yml) as f:
+            robot_params = yaml.safe_load(f)
+        with open(world_yml) as f:
+            world_params = yaml.safe_load(f)
+        with open(task_yml) as f:
+            exp_params = yaml.safe_load(f)
+
+        exp_params["robot_params"] = exp_params["model"]
+        rollout_fn = self.get_rollout_fn(
+            exp_params=exp_params,
+            tensor_args=self.tensor_args,
+            world_params=world_params,
+        )
+
+        mppi_params = dict(exp_params["mppi"])
+        dynamics_model = rollout_fn.dynamics_model
+        mppi_params["d_action"] = dynamics_model.d_action
+        mppi_params["action_lows"] = -exp_params["model"]["max_acc"] * torch.ones(
+            dynamics_model.d_action,
+            **self.tensor_args,
+        )
+        mppi_params["action_highs"] = exp_params["model"]["max_acc"] * torch.ones(
+            dynamics_model.d_action,
+            **self.tensor_args,
+        )
+
+        init_q = torch.tensor(exp_params["model"]["init_state"], **self.tensor_args)
+        init_action = torch.zeros(
+            (mppi_params["horizon"], dynamics_model.d_action),
+            **self.tensor_args,
+        )
+        init_action[:, :] += init_q
+        if exp_params["control_space"] == "acc":
+            mppi_params["init_mean"] = init_action * 0.0
+        elif exp_params["control_space"] == "pos":
+            mppi_params["init_mean"] = init_action
+        else:
+            raise ValueError(
+                f"Unsupported control_space for SageArmTask: {exp_params['control_space']}"
+            )
+
+        mppi_params["rollout_fn"] = rollout_fn
+        mppi_params["tensor_args"] = self.tensor_args
+
+        self.exp_params = exp_params
+        self.robot_params = robot_params
+        self.world_params = world_params
+        self.success_threshold = exp_params.get("sage", {}).get("success_threshold")
+        self.task_file = task_yml
+        self.robot_file = robot_yml
+        self.world_file = world_yml
+        return SAGE_MPPI(**mppi_params)
+
+    def init_aux(self):
+        self.state_filter = JointStateFilter(
+            filter_coeff=self.exp_params["state_filter_coeff"],
+            dt=self.exp_params["control_dt"],
+        )
+        self.command_filter = JointStateFilter(
+            filter_coeff=self.exp_params["cmd_filter_coeff"],
+            dt=self.exp_params["control_dt"],
+        )
+        self.control_process = ControlProcess(
+            self.controller,
+            control_space=self.exp_params.get("control_space", "acc"),
+            control_dt=self.exp_params["control_dt"],
+        )
+        self.n_dofs = self.controller.rollout_fn.dynamics_model.n_dofs
+        self.zero_acc = np.zeros(self.n_dofs)
+
+    def _augment_task_stats(self, stats):
+        stats = {} if stats is None else dict(stats)
+        stats.setdefault("success", None)
+        stats.setdefault("failure", None)
+        stats.setdefault("final_goal_distance", None)
+        stats.setdefault("minimum_safety_margin", None)
+        stats.setdefault("safe_elite_fraction", 0.0)
+        stats.setdefault("safe_weight_mass", 0.0)
+        stats.setdefault("rho_k", 0.0)
+        stats.setdefault("z_t", 0)
+        stats.setdefault("covariance_fallback", False)
+        stats.setdefault("margin_fallback", False)
+
+        if (
+            self.success_threshold is not None
+            and stats["final_goal_distance"] is not None
+        ):
+            success = bool(stats["final_goal_distance"] <= self.success_threshold)
+            stats["success"] = success
+            stats["failure"] = not success
+
+        stats["success_threshold"] = self.success_threshold
+        stats["controller_type"] = "SAGE_MPPI"
+        return stats
+
+    def get_latest_stats(self):
+        if hasattr(self.controller, "get_latest_stats"):
+            return self._augment_task_stats(self.controller.get_latest_stats())
+        return self._augment_task_stats(self.latest_task_stats)
+
+    def get_command_and_stats(self, t_step, curr_state, control_dt=None, WAIT=True):
+        """
+        Return command together with controller statistics.
+
+        Stats are only guaranteed to be fresh when WAIT=True, because the
+        baseline asynchronous ControlProcess does not forward controller info
+        from its worker process back to the parent.
+        """
+        control_dt = self.exp_params["control_dt"] if control_dt is None else control_dt
+        cmd_des = BaseTask.get_command(
+            self,
+            t_step,
+            curr_state,
+            control_dt=control_dt,
+            WAIT=WAIT,
+        )
+        stats = self.get_latest_stats() if WAIT else self._augment_task_stats(self.latest_task_stats)
+        self.latest_task_stats = dict(stats)
+        return cmd_des, stats

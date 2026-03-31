@@ -193,11 +193,17 @@ class SAGE_MPPI:
         self._goal_signature = None
         self._last_goal_progress = 0.0
         self._last_goal_dist = None
+        self._last_min_safety_margin = None
         self._last_safe_elite_fraction = 0.0
         self._last_safe_weight_mass = 0.0
+        self._last_rho_k = 0.0
         self._last_stage_scale = None
         self._last_scale_tril = None
         self._used_margin_fallback = False
+        self._used_covariance_fallback = False
+        self._last_success = None
+        self._last_failure = None
+        self.latest_stats = {}
 
         self.reset_distribution()
 
@@ -262,10 +268,84 @@ class SAGE_MPPI:
         self._goal_signature = None
         self._last_goal_progress = 0.0
         self._last_goal_dist = None
+        self._last_min_safety_margin = None
         self._last_safe_elite_fraction = 0.0
         self._last_safe_weight_mass = 0.0
+        self._last_rho_k = 0.0
         self._last_stage_scale = None
         self._used_margin_fallback = False
+        self._used_covariance_fallback = False
+        self._last_success = None
+        self._last_failure = None
+        self.latest_stats = {}
+
+    def _to_python_float(self, value) -> Optional[float]:
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            if value.numel() == 0:
+                return None
+            value = value.detach().reshape(-1)[0].item()
+        return float(value)
+
+    def _to_python_bool(self, value) -> Optional[bool]:
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            if value.numel() == 0:
+                return None
+            value = value.detach().reshape(-1)[0].item()
+        return bool(value)
+
+    def _get_success_threshold(self) -> Optional[float]:
+        threshold_attr_names = (
+            "success_threshold",
+            "goal_success_threshold",
+            "goal_dist_threshold",
+            "reach_goal_threshold",
+            "goal_threshold",
+            "hinge_val",
+        )
+        owners = (self.rollout_fn, getattr(self.rollout_fn, "goal_cost", None))
+        for owner in owners:
+            if owner is None:
+                continue
+            for attr_name in threshold_attr_names:
+                if hasattr(owner, attr_name):
+                    threshold = self._to_python_float(getattr(owner, attr_name))
+                    if threshold is not None:
+                        return threshold
+        return None
+
+    def _infer_task_outcome(
+        self,
+        trajectories: Dict[str, torch.Tensor],
+        goal_dist: Optional[float],
+    ) -> Tuple[Optional[bool], Optional[bool]]:
+        direct_fields = (
+            ("success", "failure"),
+            ("task_success", "task_failure"),
+        )
+        for success_key, failure_key in direct_fields:
+            if success_key in trajectories or failure_key in trajectories:
+                success = self._to_python_bool(trajectories.get(success_key))
+                failure = self._to_python_bool(trajectories.get(failure_key))
+                if success is None and failure is not None:
+                    success = not failure
+                if failure is None and success is not None:
+                    failure = not success
+                if success is not None or failure is not None:
+                    return success, failure
+
+        success_threshold = self._get_success_threshold()
+        if goal_dist is not None and success_threshold is not None:
+            success = bool(goal_dist <= success_threshold)
+            return success, (not success)
+
+        return None, None
+
+    def get_latest_stats(self) -> Dict[str, object]:
+        return dict(self.latest_stats)
 
     def _goal_signature_tensor(self) -> Optional[torch.Tensor]:
         goal_parts = []
@@ -569,7 +649,7 @@ class SAGE_MPPI:
         safe_mask: torch.Tensor,
         iter_idx: int,
         n_total: int,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, float, bool]:
         """
         Compute the normalized anisotropic proposal shape.
 
@@ -594,19 +674,20 @@ class SAGE_MPPI:
         )
 
         if not torch.any(safe_mask):
-            return identity_shape, safe_weight_mass
+            return identity_shape, safe_weight_mass, 0.0, True
 
         safe_weights = weights[safe_mask]
         safe_actions = actions[safe_mask]
         safe_weights_sum = torch.sum(safe_weights)
         if safe_weights_sum <= 0.0:
-            return identity_shape, safe_weight_mass
+            return identity_shape, safe_weight_mass, 0.0, True
 
         # Requested formula uses normalized safe-elite weights without epsilon.
         wbar = safe_weights / safe_weights_sum
         centered = safe_actions - proposal_mean.unsqueeze(0)
 
         chat = torch.zeros(H, d, d, **self.tensor_args)
+        covariance_fallback = False
         for h in range(H):
             delta_h = centered[:, h, :]
             chat[h] = torch.einsum("n,ni,nj->ij", wbar, delta_h, delta_h)
@@ -616,6 +697,7 @@ class SAGE_MPPI:
             trace_h = torch.trace(chat[h])
             if trace_h <= self.trace_tol:
                 ctilde[h] = self.I
+                covariance_fallback = True
             else:
                 ctilde[h] = chat[h] / (trace_h / d)
                 ctilde[h] = 0.5 * (ctilde[h] + ctilde[h].transpose(-2, -1))
@@ -623,7 +705,7 @@ class SAGE_MPPI:
         rho_k = (float(iter_idx) / float(max(n_total, 1))) * float(safe_weight_mass.item())
         rho_k = max(0.0, min(1.0, rho_k))
         shape_matrices = (1.0 - rho_k) * identity_shape + rho_k * ctilde
-        return shape_matrices, safe_weight_mass
+        return shape_matrices, safe_weight_mass, rho_k, covariance_fallback
 
     def _update_distribution(
         self,
@@ -646,6 +728,7 @@ class SAGE_MPPI:
         weights = self._compute_mppi_weights(total_costs)
         delta_safe = self._compute_rollout_safety_margin(trajectories)
         trajectories["delta_safe"] = delta_safe
+        self._last_min_safety_margin = float(delta_safe.amin().item())
 
         best_idx = torch.argmin(total_costs)
         self.best_idx = best_idx
@@ -670,7 +753,12 @@ class SAGE_MPPI:
         )
 
         safe_mask, _ = self._compute_safe_elite_set(total_costs, delta_safe)
-        self.shape_matrices, _ = self._compute_safe_elite_covariance(
+        (
+            self.shape_matrices,
+            _,
+            self._last_rho_k,
+            self._used_covariance_fallback,
+        ) = self._compute_safe_elite_covariance(
             actions=actions,
             proposal_mean=proposal_mean,
             weights=weights,
@@ -791,10 +879,18 @@ class SAGE_MPPI:
             "stage_scale_mean": [],
             "safe_elite_fraction": [],
             "safe_weight_mass": [],
+            "rho_k_seq": [],
+            "covariance_fallback_seq": [],
             "goal_progress": goal_progress,
             "goal_dist": goal_dist,
+            "final_goal_distance": goal_dist,
+            "minimum_safety_margin": None,
+            "success": None,
+            "failure": None,
+            "z_t": int(bool(stagnated)),
             "stagnation": float(bool(stagnated)),
             "margin_fallback": False,
+            "covariance_fallback": False,
         }
 
         with torch.amp.autocast("cuda", enabled=True):
@@ -823,10 +919,37 @@ class SAGE_MPPI:
                     info["stage_scale_mean"].append(float(stage_scale.mean().item()))
                     info["safe_elite_fraction"].append(float(self._last_safe_elite_fraction))
                     info["safe_weight_mass"].append(float(self._last_safe_weight_mass))
+                    info["rho_k_seq"].append(float(self._last_rho_k))
+                    info["covariance_fallback_seq"].append(bool(self._used_covariance_fallback))
 
         self.trajectories = trajectories
+        success, failure = self._infer_task_outcome(trajectories, goal_dist)
+        self._last_success = success
+        self._last_failure = failure
         info["margin_fallback"] = bool(self._used_margin_fallback)
+        info["covariance_fallback"] = bool(any(info["covariance_fallback_seq"]))
+        info["minimum_safety_margin"] = self._last_min_safety_margin
+        info["success"] = success
+        info["failure"] = failure
+        info["rho_k"] = info["rho_k_seq"][-1] if info["rho_k_seq"] else 0.0
         info["entropy"].append(float(self.entropy.item()))
+        info["stats"] = {
+            "success": success,
+            "failure": failure,
+            "final_goal_distance": goal_dist,
+            "minimum_safety_margin": self._last_min_safety_margin,
+            "safe_elite_fraction": (
+                info["safe_elite_fraction"][-1] if info["safe_elite_fraction"] else 0.0
+            ),
+            "safe_weight_mass": (
+                info["safe_weight_mass"][-1] if info["safe_weight_mass"] else 0.0
+            ),
+            "rho_k": info["rho_k"],
+            "z_t": info["z_t"],
+            "covariance_fallback": info["covariance_fallback"],
+            "margin_fallback": info["margin_fallback"],
+        }
+        self.latest_stats = dict(info["stats"])
 
         if self.execute_best and self.best_traj is not None:
             curr_action_seq = self.best_traj.clone()
