@@ -144,13 +144,16 @@ task_metrics:
 
 sage_controller_core:
   enable_stage_scale: True
-  enable_safe_elite_shape: True
+  enable_anisotropic_shape_update: True
   enable_stagnation_amplification: True
-  prefer_rollout_native_margin: True
+  enable_runtime_stats: False
+  enable_shape_collapse_guard: True
+  shape_update_min_normalized_entropy: 0.04
+  shape_update_max_fallback_fraction: 0.85
+  shape_update_last_iter_only: True
   sigma_0: 0.005
   sigma_1: 1.0
   sigma_2: 0.5
-  eta: 0.2
   tau_p: 1.0e-4
   stagnation_alpha: 1.0
 

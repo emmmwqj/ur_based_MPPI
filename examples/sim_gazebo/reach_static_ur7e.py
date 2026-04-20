@@ -80,6 +80,8 @@ from storm_kit.mpc.task.task_base import BaseTask
 
 np.set_printoptions(precision=3, suppress=True)
 
+FORWARD_POSITION_CMD_TOPIC = '/forward_position_controller/commands'
+
 
 # ============================================================================
 # 自定义 Gazebo ReacherTask (使用本地配置文件)
@@ -237,6 +239,7 @@ class GazeboRobotInterface(Node):
         self._state_received = False
         self._state_count = 0
         self._cmd_count = 0
+        self._runtime_control_topic = FORWARD_POSITION_CMD_TOPIC
         
         # 目标位置（从 ROS2 接收）
         self._target_pos = None
@@ -257,7 +260,7 @@ class GazeboRobotInterface(Node):
         
         # 发布位置指令 (ForwardPositionController)
         self.pub_position_cmd = self.create_publisher(
-            Float64MultiArray, '/forward_position_controller/commands', qos_reliable
+            Float64MultiArray, self._runtime_control_topic, qos_reliable
         )
         
         # 发布末端位置
@@ -274,7 +277,11 @@ class GazeboRobotInterface(Node):
         self.get_logger().info(f'  控制频率: {control_rate} Hz')
         self.get_logger().info(f'  关节数: {self.n_dof}')
         self.get_logger().info(f'  订阅: /joint_states, /target_pose')
-        self.get_logger().info(f'  发布: /forward_position_controller/commands, /ee_pose, /visualization_marker_array')
+        self.get_logger().info(f'  发布: {self._runtime_control_topic}, /ee_pose, /visualization_marker_array')
+        self.get_logger().info(
+            '  运行时关节控制约束: 仅通过 ros2_control/forward_position_controller 下发命令; '
+            '除 Gazebo 初始姿态外, 不直接设置机械臂关节位置'
+        )
     
     def _joint_state_callback(self, msg: JointState):
         """处理关节状态消息"""
@@ -361,6 +368,10 @@ class GazeboRobotInterface(Node):
     
     def send_position_command(self, positions: np.ndarray):
         """发送关节位置指令"""
+        if self._runtime_control_topic != FORWARD_POSITION_CMD_TOPIC:
+            raise RuntimeError(
+                f'非法控制话题: {self._runtime_control_topic}, 仅允许 {FORWARD_POSITION_CMD_TOPIC}'
+            )
         msg = Float64MultiArray()
         msg.data = positions.tolist()
         self.pub_position_cmd.publish(msg)

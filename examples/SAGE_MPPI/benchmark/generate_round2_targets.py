@@ -14,7 +14,8 @@ import torch
 torch.multiprocessing.set_start_method("spawn", force=True)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", "..", ".."))
+SIM_GAZEBO_CONFIG_DIR = os.path.join(REPO_ROOT, "examples", "sim_gazebo", "config")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 if THIS_DIR not in sys.path:
@@ -23,11 +24,11 @@ if THIS_DIR not in sys.path:
 from run_controller_batch import _build_task, _build_tensor_args
 
 
-ROBOT_FILE = os.path.join(THIS_DIR, "config", "ur7e_robot_gazebo.yml")
+ROBOT_FILE = os.path.join(SIM_GAZEBO_CONFIG_DIR, "ur7e_robot_gazebo.yml")
 BASELINE_TASK_FILE = os.path.join(REPO_ROOT, "content", "configs", "mpc", "ur7e_reacher.yml")
-WORLD_EASY = os.path.join(THIS_DIR, "config", "collision_world_gazebo_easy.yml")
-WORLD_OBSTACLE = os.path.join(THIS_DIR, "config", "collision_world_gazebo_obstacle.yml")
-WORLD_NARROW = os.path.join(THIS_DIR, "config", "collision_world_gazebo_tall.yml")
+WORLD_EASY = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_easy.yml")
+WORLD_OBSTACLE = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_obstacle.yml")
+WORLD_NARROW = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_tall.yml")
 
 INIT_Q = np.asarray([0.0, -1.57, 1.57, -1.57, -1.57, 0.0], dtype=np.float64)
 JOINT_LOW = np.asarray([-1.0, -2.1, 0.7, -2.6, -2.3, -1.3], dtype=np.float64)

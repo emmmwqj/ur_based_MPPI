@@ -143,7 +143,7 @@ if [[ "${READY}" != "true" ]]; then
     exit 1
 fi
 
-log "Gazebo is ready, starting controller"
+log "Gazebo is ready, starting STORM controller"
 setsid bash -lc "cd '${SIM_DIR}' && ./run_reach_static_tall.sh" &
 CONTROLLER_PGID=$!
 

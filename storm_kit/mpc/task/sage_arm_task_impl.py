@@ -11,21 +11,20 @@ import torch
 import yaml
 
 from ...util_file import get_gym_configs_path, get_mpc_configs_path, join_path
-from ..control.sage_mppi_clean import SAGE_MPPI_CLEAN
+from ..control.sage_mppi import SAGE_MPPI
 from ..rollout.sage_arm_base import SageArmBase
-from ..utils.mpc_process_wrapper import ControlProcess
 from ..utils.state_filter import JointStateFilter
-from .task_base import BaseTask
+from ..utils.mpc_process_wrapper_sage import ControlProcessSage
+from .task_base_sage import BaseTaskSage
 
 
-class SageArmTaskV2(BaseTask):
+class SageArmTaskV3(BaseTaskSage):
     """
-    Clean SAGE task assembly.
+    Final clean SAGE task assembly.
 
-    Differences from the earlier standalone SAGE task:
-    - uses rollout-native safety margins via SageArmBase/SageArmReacher
-    - instantiates SAGE_MPPI_CLEAN with explicit core switches
-    - keeps deployment refinement config in a separate group for future wrappers
+    This task is the intended clean pipeline entry:
+    - independent clean controller core
+    - controller/deployment config groups kept separate
     """
 
     def __init__(
@@ -79,7 +78,7 @@ class SageArmTaskV2(BaseTask):
             mppi_params["init_mean"] = init_action
         else:
             raise ValueError(
-                f"Unsupported control_space for SageArmTaskV2: {exp_params['control_space']}"
+                f"Unsupported control_space for SageArmTaskV3: {exp_params['control_space']}"
             )
 
         mppi_params["rollout_fn"] = rollout_fn
@@ -108,7 +107,6 @@ class SageArmTaskV2(BaseTask):
             tensor_args=self.tensor_args,
             world_params=world_params,
         )
-
         controller_params = self._build_controller_params(exp_params, rollout_fn)
 
         self.exp_params = exp_params
@@ -121,7 +119,7 @@ class SageArmTaskV2(BaseTask):
         self.task_file = task_yml
         self.robot_file = robot_yml
         self.world_file = world_yml
-        return SAGE_MPPI_CLEAN(**controller_params)
+        return SAGE_MPPI(**controller_params)
 
     def init_aux(self):
         self.state_filter = JointStateFilter(
@@ -132,7 +130,7 @@ class SageArmTaskV2(BaseTask):
             filter_coeff=self.exp_params["cmd_filter_coeff"],
             dt=self.exp_params["control_dt"],
         )
-        self.control_process = ControlProcess(
+        self.control_process = ControlProcessSage(
             self.controller,
             control_space=self.exp_params.get("control_space", "acc"),
             control_dt=self.exp_params["control_dt"],
@@ -145,13 +143,17 @@ class SageArmTaskV2(BaseTask):
         stats.setdefault("success", None)
         stats.setdefault("failure", None)
         stats.setdefault("final_goal_distance", None)
-        stats.setdefault("minimum_safety_margin", None)
-        stats.setdefault("safe_elite_fraction", 0.0)
-        stats.setdefault("safe_weight_mass", 0.0)
-        stats.setdefault("rho_k", 0.0)
         stats.setdefault("z_t", 0)
         stats.setdefault("covariance_fallback", False)
-        stats.setdefault("margin_fallback", False)
+        stats.setdefault("covariance_fallback_count", 0)
+        stats.setdefault("weight_entropy", 0.0)
+        stats.setdefault("covariance_trace_mean", 0.0)
+        stats.setdefault("shape_condition_number", 1.0)
+        stats.setdefault("proposal_scale_min", None)
+        stats.setdefault("proposal_scale_max", None)
+        stats.setdefault("shape_update_skipped", False)
+        stats.setdefault("shape_skip_reason", "")
+        stats.setdefault("enable_runtime_stats", False)
 
         if self.success_threshold is not None and stats["final_goal_distance"] is not None:
             success = bool(stats["final_goal_distance"] <= self.success_threshold)
@@ -159,7 +161,7 @@ class SageArmTaskV2(BaseTask):
             stats["failure"] = not success
 
         stats["success_threshold"] = self.success_threshold
-        stats["controller_type"] = "SAGE_MPPI_CLEAN"
+        stats["controller_type"] = "SAGE_MPPI"
         stats["controller_core_config"] = dict(self.controller_core_config)
         stats["deployment_refinement_config"] = dict(self.deployment_refinement_config)
         return stats
@@ -171,7 +173,7 @@ class SageArmTaskV2(BaseTask):
 
     def get_command_and_stats(self, t_step, curr_state, control_dt=None, WAIT=True):
         control_dt = self.exp_params["control_dt"] if control_dt is None else control_dt
-        cmd_des = BaseTask.get_command(
+        cmd_des = BaseTaskSage.get_command(
             self,
             t_step,
             curr_state,

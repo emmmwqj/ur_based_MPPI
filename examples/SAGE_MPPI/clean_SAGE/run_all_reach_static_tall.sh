@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-shot launcher for the clean SAGE_MPPI_CORE tall-scene UR7e project.
+# One-shot launcher for the latest clean SAGE_MPPI tall-scene UR7e project.
 # Default behavior:
 # - Gazebo starts headless
 # - Controller starts with its own RViz
@@ -31,6 +31,11 @@ topics_ready() {
     fi
 
     return 1
+}
+
+get_pgid_for_pid() {
+    local pid="$1"
+    ps -o pgid= "${pid}" 2>/dev/null | tr -d ' ' || true
 }
 
 kill_process_group() {
@@ -73,6 +78,47 @@ kill_process_group() {
     fi
 }
 
+cleanup_existing_ur_gazebo() {
+    local pids pgid
+    local found=false
+
+    pids="$(pgrep -f 'ros2 launch ur_simulation_gazebo ur_sim_control.launch.py' || true)"
+    if [[ -n "${pids}" ]]; then
+        found=true
+        while read -r pid; do
+            [[ -z "${pid}" ]] && continue
+            pgid="$(get_pgid_for_pid "${pid}")"
+            if [[ -n "${pgid}" ]]; then
+                kill_process_group "${pgid}" "stale ur_sim_control launch"
+            fi
+        done <<< "${pids}"
+    fi
+
+    # If launch-level cleanup missed a detached gzserver/controller stack,
+    # stop the remaining Gazebo server that still owns the ROS/Gazebo plugins.
+    pids="$(pgrep -f 'gzserver .*libgazebo_ros_init.so .*libgazebo_ros_factory.so .*libgazebo_ros_force_system.so' || true)"
+    if [[ -n "${pids}" ]]; then
+        found=true
+        while read -r pid; do
+            [[ -z "${pid}" ]] && continue
+            pgid="$(get_pgid_for_pid "${pid}")"
+            if [[ -n "${pgid}" ]]; then
+                kill_process_group "${pgid}" "stale gzserver"
+            fi
+        done <<< "${pids}"
+    fi
+
+    if [[ "${found}" == "true" ]]; then
+        log "waiting for stale Gazebo topics to disappear"
+        for _ in $(seq 1 20); do
+            if ! topics_ready; then
+                break
+            fi
+            sleep 0.5
+        done
+    fi
+}
+
 cleanup() {
     if [[ "${SHUTTING_DOWN}" == "true" ]]; then
         return
@@ -102,13 +148,16 @@ if [[ -z "${ROS_DISTRO:-}" ]]; then
 fi
 
 echo "============================================================"
-echo "UR7e clean SAGE-MPPI-core Tall Scene - Unified Launcher"
+echo "UR7e clean SAGE-MPPI Tall Scene - Unified Launcher"
 echo "============================================================"
 echo "Gazebo RViz: disabled"
 echo "Gazebo GUI: disabled"
 echo "Controller RViz: enabled"
 echo "Controller env: whole_control"
 echo ""
+
+log "checking for stale UR Gazebo/controller processes"
+cleanup_existing_ur_gazebo
 
 log "starting Gazebo"
 setsid bash -lc "

@@ -1,27 +1,27 @@
 #!/bin/bash
-# UR7e clean SAGE-MPPI-core Reach Static - Gazebo 高墙场景启动脚本
+# UR7e latest clean SAGE MPC Reach Static - Gazebo 高墙场景启动脚本
 
-set -euo pipefail
+set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SIM_GAZEBO_CONFIG_DIR="$(cd "${SCRIPT_DIR}/../../sim_gazebo/config" && pwd)"
+RVIZ_CONFIG_FILE="${SCRIPT_DIR}/config/reach_static_clean.rviz"
 
-echo "===================================================="
-echo "UR7e clean SAGE-MPPI-core Reach Static - Gazebo 高墙场景"
-echo "===================================================="
+echo "============================================================"
+echo "UR7e SAGE CLEAN MPC Reach Static - Gazebo 高墙场景"
+echo "============================================================"
 
 if [ -z "${ROS_DISTRO:-}" ]; then
     echo "正在 source ROS2 环境..."
     source /opt/ros/humble/setup.bash
 fi
 
-echo "ROS_DISTRO: ${ROS_DISTRO:-unset}"
+echo "ROS_DISTRO: $ROS_DISTRO"
 
 eval "$(conda shell.bash hook)"
 conda activate whole_control
 
 if [[ "${CONDA_DEFAULT_ENV:-}" != "whole_control" ]]; then
-    echo "错误: 无法激活 whole_control 环境" >&2
+    echo "错误: 无法激活 whole_control 环境"
     exit 1
 fi
 
@@ -30,13 +30,13 @@ echo "Python: $(python --version)"
 echo ""
 
 LAUNCH_RVIZ=true
+PASSTHROUGH_ARGS=()
 RVIZ_PID=""
-PASS_ARGS=()
 for arg in "$@"; do
     if [[ "$arg" == "--no-rviz" ]]; then
         LAUNCH_RVIZ=false
     else
-        PASS_ARGS+=("$arg")
+        PASSTHROUGH_ARGS+=("$arg")
     fi
 done
 
@@ -50,7 +50,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "启动 clean SAGE-MPPI-core Reach Static 高墙场景控制器..."
+echo "启动 SAGE clean Reach Static 高墙场景控制器..."
 echo ""
 cd "$SCRIPT_DIR"
 
@@ -58,9 +58,9 @@ if $LAUNCH_RVIZ; then
     (
         sleep 3
         echo "[RViz] 启动可视化..."
-        ros2 run rviz2 rviz2 -d "${SIM_GAZEBO_CONFIG_DIR}/reach_static.rviz" 2>/dev/null
+        ros2 run rviz2 rviz2 -d "${RVIZ_CONFIG_FILE}" 2>/dev/null
     ) &
     RVIZ_PID=$!
 fi
 
-python3 reach_static_ur7e_tall.py "${PASS_ARGS[@]}"
+python3 reach_static_ur7e_tall.py "${PASSTHROUGH_ARGS[@]}"

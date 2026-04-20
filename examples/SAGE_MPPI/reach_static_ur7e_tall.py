@@ -500,8 +500,9 @@ def mpc_control_main(args):
         _log("=" * 60)
 
         sim_gazebo_config_dir = os.path.join(STORM_ROOT, "examples", "sim_gazebo", "config")
+        sage_config_dir = os.path.join(STORM_ROOT, "examples", "SAGE_MPPI", "config")
         robot_file = os.path.join(sim_gazebo_config_dir, "ur7e_robot_gazebo.yml")
-        task_file = os.path.join(sim_gazebo_config_dir, "ur7e_reacher_gazebo_tall_sage.yml")
+        task_file = os.path.join(sage_config_dir, "ur7e_reacher_gazebo_tall_sage.yml")
         world_file = os.path.join(sim_gazebo_config_dir, "collision_world_gazebo_tall.yml")
 
         _log("\n加载配置文件...")

@@ -7,9 +7,10 @@ import subprocess
 import sys
 
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-BATCH_RUNNER = os.path.join(REPO_ROOT, "examples", "sim_gazebo", "run_controller_batch.py")
-SUMMARIZER = os.path.join(REPO_ROOT, "examples", "sim_gazebo", "summarize_experiments.py")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+BENCHMARK_DIR = os.path.join(REPO_ROOT, "examples", "SAGE_MPPI", "benchmark")
+BATCH_RUNNER = os.path.join(BENCHMARK_DIR, "run_controller_batch.py")
+SUMMARIZER = os.path.join(BENCHMARK_DIR, "summarize_experiments.py")
 
 
 SCENE_SPECS = {

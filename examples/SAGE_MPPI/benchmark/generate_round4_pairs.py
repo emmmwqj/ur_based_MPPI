@@ -15,7 +15,7 @@ import torch
 torch.multiprocessing.set_start_method("spawn", force=True)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", "..", ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 if THIS_DIR not in sys.path:

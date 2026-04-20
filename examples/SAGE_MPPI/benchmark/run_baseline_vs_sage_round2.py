@@ -13,7 +13,8 @@ import torch
 torch.multiprocessing.set_start_method("spawn", force=True)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", "..", ".."))
+SIM_GAZEBO_CONFIG_DIR = os.path.join(REPO_ROOT, "examples", "sim_gazebo", "config")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 if THIS_DIR not in sys.path:
@@ -31,8 +32,8 @@ from run_controller_batch import (
 from summarize_round2_benchmark import summarize
 
 
-WORLD_EASY = os.path.join(THIS_DIR, "config", "collision_world_gazebo_easy.yml")
-WORLD_OBSTACLE = os.path.join(THIS_DIR, "config", "collision_world_gazebo_obstacle.yml")
+WORLD_EASY = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_easy.yml")
+WORLD_OBSTACLE = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_obstacle.yml")
 
 SCENE_SPECS = {
     "easy": {

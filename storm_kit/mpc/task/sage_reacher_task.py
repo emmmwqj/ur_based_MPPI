@@ -4,30 +4,17 @@
 # Copyright (c) 2020-2021 NVIDIA CORPORATION.
 #
 
-import torch
+"""
+Canonical SAGE reaching task entry.
 
-from ..rollout.arm_reacher import ArmReacher
-from .sage_arm_task import SageArmTask
+This file preserves the stable public task name ``SageReacherTask`` while the
+implementation remains separated from the canonical wrapper.
+"""
+
+from .sage_reacher_task_v3 import SageReacherTaskV3
 
 
-class SageReacherTask(SageArmTask):
-    """
-    Reaching task assembly for SAGE-MPPI.
-    """
+class SageReacherTask(SageReacherTaskV3):
+    """Latest canonical SAGE reaching task."""
 
-    def __init__(
-        self,
-        task_file="ur10.yml",
-        robot_file="ur10_reacher.yml",
-        world_file="collision_env.yml",
-        tensor_args={"device": "cpu", "dtype": torch.float32},
-    ):
-        super().__init__(
-            task_file=task_file,
-            robot_file=robot_file,
-            world_file=world_file,
-            tensor_args=tensor_args,
-        )
-
-    def get_rollout_fn(self, **kwargs):
-        return ArmReacher(**kwargs)
+    pass

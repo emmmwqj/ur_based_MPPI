@@ -18,10 +18,10 @@ from .sage_arm_base import SageArmBase
 
 class SageArmReacher(SageArmBase):
     """
-    Reaching rollout with native SAGE safety-margin outputs.
+    Reaching rollout for clean SAGE.
 
     This mirrors ArmReacher's goal-pose cost logic while inheriting the
-    rollout-native safety margin fields from SageArmBase.
+    state-dict-preserving rollout behavior from SageArmBase.
     """
 
     def __init__(

@@ -7,7 +7,7 @@
 import torch
 
 from ..rollout.sage_arm_reacher import SageArmReacher
-from .sage_arm_task_v3 import SageArmTaskV3
+from .sage_arm_task_impl import SageArmTaskV3
 
 
 class SageReacherTaskV3(SageArmTaskV3):

@@ -117,11 +117,16 @@ rollout / dynamics / cost 仍然依赖原有 STORM 结构：
 - `self_collision`
 - `goal_pose` 等 cost
 
-### 4.2 依赖 `examples/sim_gazebo/config`
+### 4.2 依赖 `examples/SAGE_MPPI/config` 与 `examples/sim_gazebo/config`
 
-当前项目没有自己复制一套场景配置，而是复用原 sim_gazebo 的配置目录：
+当前项目现在按角色拆分配置：
 
-- [ur7e_reacher_gazebo_tall_sage.yml](/home/wqj/storm/examples/sim_gazebo/config/ur7e_reacher_gazebo_tall_sage.yml)
+SAGE 自己的 task/controller 配置放在项目目录内：
+
+- [ur7e_reacher_gazebo_tall_sage.yml](/home/wqj/storm/examples/SAGE_MPPI/config/ur7e_reacher_gazebo_tall_sage.yml)
+
+Gazebo 共享场景/机器人/RViz 配置继续复用 `sim_gazebo`：
+
 - [collision_world_gazebo_tall.yml](/home/wqj/storm/examples/sim_gazebo/config/collision_world_gazebo_tall.yml)
 - [ur7e_robot_gazebo.yml](/home/wqj/storm/examples/sim_gazebo/config/ur7e_robot_gazebo.yml)
 - [initial_positions.yaml](/home/wqj/storm/examples/sim_gazebo/config/initial_positions.yaml)
@@ -293,7 +298,7 @@ rollout / dynamics / cost 仍然依赖原有 STORM 结构：
 
 项目没有改 baseline 的 tall config，而是单独新建：
 
-- [ur7e_reacher_gazebo_tall_sage.yml](/home/wqj/storm/examples/sim_gazebo/config/ur7e_reacher_gazebo_tall_sage.yml)
+- [ur7e_reacher_gazebo_tall_sage.yml](/home/wqj/storm/examples/SAGE_MPPI/config/ur7e_reacher_gazebo_tall_sage.yml)
 
 这份配置的设计思路是：
 

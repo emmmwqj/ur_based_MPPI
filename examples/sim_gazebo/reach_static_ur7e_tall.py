@@ -491,7 +491,6 @@ def mpc_control_main(args):
         _log("MPC 预热完成，开始控制!\n")
 
         loop_count = 0
-        marker_update_counter = 0
         loop_start = time.time()
 
         while rclpy.ok() and not shutdown_event.is_set():
@@ -559,34 +558,31 @@ def mpc_control_main(args):
             ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, ee_pos_robot)
             robot.publish_ee_pose(ee_pos_world)
 
-            marker_update_counter += 1
-            if marker_update_counter >= 10:
-                link_pos_robot, link_rot_robot = _compute_link_poses_robot_frame(
-                    rollout_fn,
-                    q,
-                    dq,
-                    tensor_args,
-                )
-                collision_spheres_world = collision_sphere_visualizer.get_world_spheres(
-                    link_pos_robot,
-                    link_rot_robot,
-                    robot_pos,
-                    robot_quat_xyzw,
-                )
-                robot.publish_markers(
-                    world_params,
-                    current_goal_world,
-                    ee_pos_world,
-                    collision_spheres=collision_spheres_world,
-                )
-                top_trajs_world = _get_top_ee_trajs_world(
-                    mpc,
-                    robot_pos,
-                    robot_quat_xyzw,
-                    max_trajs=5,
-                )
-                robot.publish_top_trajectories(top_trajs_world)
-                marker_update_counter = 0
+            link_pos_robot, link_rot_robot = _compute_link_poses_robot_frame(
+                rollout_fn,
+                q,
+                dq,
+                tensor_args,
+            )
+            collision_spheres_world = collision_sphere_visualizer.get_world_spheres(
+                link_pos_robot,
+                link_rot_robot,
+                robot_pos,
+                robot_quat_xyzw,
+            )
+            robot.publish_markers(
+                world_params,
+                current_goal_world,
+                ee_pos_world,
+                collision_spheres=collision_spheres_world,
+            )
+            top_trajs_world = _get_top_ee_trajs_world(
+                mpc,
+                robot_pos,
+                robot_quat_xyzw,
+                max_trajs=5,
+            )
+            robot.publish_top_trajectories(top_trajs_world)
 
             loop_count += 1
             if loop_count % 50 == 0:

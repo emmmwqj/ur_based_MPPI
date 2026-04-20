@@ -54,6 +54,8 @@ from examples.whole_sim_gazebo.gazebo_obstacle_utils import (
 
 np.set_printoptions(precision=3, suppress=True)
 
+FORWARD_POSITION_CMD_TOPIC = '/forward_position_controller/commands'
+
 
 def _log(message: str) -> None:
     print(message, flush=True)
@@ -292,6 +294,7 @@ class GazeboRobotInterface(Node):
         self.state_received = False
         self.obstacle_world = None
         self.target_position_world = None
+        self.runtime_control_topic = FORWARD_POSITION_CMD_TOPIC
 
         qos = QoSProfile(depth=10)
         qos_reliable = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
@@ -310,7 +313,7 @@ class GazeboRobotInterface(Node):
         )
         self.pub_position_cmd = self.create_publisher(
             Float64MultiArray,
-            '/forward_position_controller/commands',
+            self.runtime_control_topic,
             qos_reliable,
         )
         self.pub_ee_pose = self.create_publisher(
@@ -328,7 +331,11 @@ class GazeboRobotInterface(Node):
         self.get_logger().info(f'控制频率: {control_rate} Hz')
         self.get_logger().info(f'关节数: {self.n_dof}')
         self.get_logger().info('订阅: /joint_states, /target_pose')
-        self.get_logger().info('发布: /forward_position_controller/commands, /ee_pose, /visualization_marker_array')
+        self.get_logger().info(f'发布: {self.runtime_control_topic}, /ee_pose, /visualization_marker_array')
+        self.get_logger().info(
+            '运行时关节控制约束: 仅通过 ros2_control/forward_position_controller 下发命令; '
+            '除 Gazebo 初始姿态外, 不直接设置机械臂关节位置'
+        )
 
     def _joint_state_callback(self, msg: JointState):
         positions = np.zeros(self.n_dof)
@@ -379,6 +386,10 @@ class GazeboRobotInterface(Node):
         }
 
     def send_position_command(self, positions):
+        if self.runtime_control_topic != FORWARD_POSITION_CMD_TOPIC:
+            raise RuntimeError(
+                f'非法控制话题: {self.runtime_control_topic}, 仅允许 {FORWARD_POSITION_CMD_TOPIC}'
+            )
         msg = Float64MultiArray()
         msg.data = positions.tolist()
         self.pub_position_cmd.publish(msg)
@@ -628,7 +639,6 @@ def mpc_control_main(args):
 
         t = 0.0
         loop_count = 0
-        marker_update_counter = 0
         control_dt = 1.0 / args.rate
 
         _log('预热 MPC 控制器...')
@@ -715,10 +725,9 @@ def mpc_control_main(args):
                 ee_pos_world = transform_point(robot_pos_world, robot_quat_xyzw, ee_pos_robot)
                 robot.publish_ee_pose(ee_pos_world)
 
-                marker_update_counter += 1
-                if marker_update_counter >= 10:
-                    robot.publish_markers(current_goal_world, ee_pos_world)
-                    marker_update_counter = 0
+                # Keep RViz obstacle / collision / prediction overlays visually
+                # aligned with the live robot by publishing every control cycle.
+                robot.publish_markers(current_goal_world, ee_pos_world)
 
                 loop_count += 1
                 if loop_count % 50 == 0:

@@ -15,7 +15,7 @@
 use_cuda: True
 cuda_device_num: 0
 
-control_dt: 0.02
+control_dt: 0.05
 run_open_loop: False
 control_space: "acc"
 float_dtype: "float32"
@@ -91,7 +91,7 @@ cost:
     gaussian_params: {"n": 0, "c": 0.0, "s": 0, "r": 10.0}
 
   null_space:
-    weight: 1.0
+    weight: 0.0
     gaussian_params: {"n": 0, "c": 0.0, "s": 0, "r": 1.0}
     vec_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
@@ -147,34 +147,47 @@ task_metrics:
 
 sage_controller_core:
   enable_stage_scale: True
-  enable_safe_elite_shape: True
+  enable_anisotropic_shape_update: True
   enable_stagnation_amplification: True
-  prefer_rollout_native_margin: True
+  enable_runtime_stats: False
+  enable_shape_collapse_guard: True
+  shape_update_min_normalized_entropy: 0.04
+  shape_update_max_fallback_fraction: 0.85
+  shape_update_last_iter_only: True
   sigma_0: 0.005
   sigma_1: 1.0
   sigma_2: 0.5
-  eta: 0.2
   tau_p: 1.0e-4
   stagnation_alpha: 8.0
 
 sage_deployment_refinement:
-  enabled: False
+  enabled: True
+  goal_change_boost:
+    enabled: True
+    sigma_scale: 4.0
+    step_size_mean: 0.45
+    restore_error_threshold: 0.18
   near_goal_refinement:
-    enabled: False
-    enter_threshold: 0.08
-    exit_threshold: 0.11
-    sigma_scale: 0.2
+    enabled: True
+    enter_threshold: 0.20
+    exit_threshold: 0.24
+    sigma_scale: 0.35
     stagnation_alpha: 0.0
-    goal_weight_scale: 1.5
+    goal_weight_scale: 3.0
+    stop_cost_scale: 0.5
+    stop_cost_acc_scale: 1.0
     tau_p: 1.0e-3
-    step_size_mean: 1.0
-  cartesian_refinement:
-    enabled: False
-    enter_threshold: 0.05
-    exit_threshold: 0.07
+    step_size_mean: 0.7
+  local_refinement:
+    enabled: True
+    dist_threshold: 0.10
+    exit_threshold: 0.13
     damping: 0.05
-    gain: 0.7
-    max_joint_step: 0.02
+    gain: 0.4
+    max_step: 0.01
+    output_mode: "blend"
+    blend_steps: 8
+    max_command_slew: 0.006
   hold:
     enabled: False
     success_threshold: 0.05
@@ -186,13 +199,16 @@ sage_deployment_refinement:
     cart_hold_threshold: 0.01
     cart_hold_count: 10
   stall_recovery:
-    enabled: False
+    enabled: True
     history_len: 50
     min_runtime: 8.0
-    error_threshold: 0.12
-    motion_threshold: 0.01
+    error_threshold: 0.15
+    motion_threshold: 0.015
     velocity_threshold: 0.08
     cooldown: 8.0
+    sigma_scale: 8.0
+    step_size_mean: 0.35
+    restore_error_threshold: 0.18
 
 mppi:
   horizon: 30

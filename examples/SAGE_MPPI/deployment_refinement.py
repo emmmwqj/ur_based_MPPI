@@ -103,6 +103,8 @@ class NearGoalRefinementController:
         sigma_scale: float = 0.2,
         stagnation_alpha: float = 0.0,
         goal_weight_scale: float = 1.5,
+        stop_cost_scale: float = 1.0,
+        stop_cost_acc_scale: float = 1.0,
         tau_p: Optional[float] = None,
         step_size_mean: Optional[float] = None,
     ) -> None:
@@ -114,6 +116,8 @@ class NearGoalRefinementController:
         self.sigma_scale = float(sigma_scale)
         self.refine_stagnation_alpha = float(stagnation_alpha)
         self.goal_weight_scale = float(goal_weight_scale)
+        self.stop_cost_scale = float(stop_cost_scale)
+        self.stop_cost_acc_scale = float(stop_cost_acc_scale)
         self.refine_tau_p = None if tau_p is None else float(tau_p)
         self.refine_step_size_mean = None if step_size_mean is None else float(step_size_mean)
         self.active = False
@@ -123,6 +127,8 @@ class NearGoalRefinementController:
         self.base_tau_p = float(controller.tau_p)
         self.base_step_size_mean = float(controller.step_size_mean)
         self.base_goal_weight = self._get_goal_position_weight()
+        self.base_stop_cost_weight = self._get_scalar_cost_weight("stop_cost")
+        self.base_stop_cost_acc_weight = self._get_scalar_cost_weight("stop_cost_acc")
         self.base_retract_state = np.asarray(
             self.mpc.exp_params["cost"]["retract_state"],
             dtype=np.float64,
@@ -156,6 +162,34 @@ class NearGoalRefinementController:
             weight[1] = float(value)
             goal_cost.weight = weight
 
+    def _get_scalar_cost_weight(self, attr_name: str) -> Optional[float]:
+        cost_obj = getattr(self.rollout_fn, attr_name, None)
+        if cost_obj is None or not hasattr(cost_obj, "weight"):
+            return None
+        weight = cost_obj.weight
+        if isinstance(weight, torch.Tensor):
+            if weight.numel() == 0:
+                return None
+            return float(weight.detach().reshape(-1)[0].item())
+        return float(weight)
+
+    def _set_scalar_cost_weight(self, attr_name: str, exp_key: str, value: float) -> None:
+        cost_obj = getattr(self.rollout_fn, attr_name, None)
+        if cost_obj is not None and hasattr(cost_obj, "weight"):
+            weight = cost_obj.weight
+            if isinstance(weight, torch.Tensor):
+                cost_obj.weight = torch.as_tensor(float(value), **self.controller.tensor_args)
+            else:
+                cost_obj.weight = float(value)
+        try:
+            self.rollout_fn.exp_params["cost"][exp_key]["weight"] = float(value)
+        except Exception:
+            pass
+        try:
+            self.mpc.exp_params["cost"][exp_key]["weight"] = float(value)
+        except Exception:
+            pass
+
     def _apply_refine_params(self) -> None:
         self.controller.sigma_0 = self.base_sigma_0 * self.sigma_scale
         self.controller.stagnation_alpha = self.refine_stagnation_alpha
@@ -165,6 +199,18 @@ class NearGoalRefinementController:
             self.controller.step_size_mean = self.refine_step_size_mean
         if self.base_goal_weight is not None:
             self._set_goal_position_weight(self.base_goal_weight * self.goal_weight_scale)
+        if self.base_stop_cost_weight is not None:
+            self._set_scalar_cost_weight(
+                "stop_cost",
+                "stop_cost",
+                self.base_stop_cost_weight * self.stop_cost_scale,
+            )
+        if self.base_stop_cost_acc_weight is not None:
+            self._set_scalar_cost_weight(
+                "stop_cost_acc",
+                "stop_cost_acc",
+                self.base_stop_cost_acc_weight * self.stop_cost_acc_scale,
+            )
 
     def _restore_nominal_params(self) -> None:
         self.controller.sigma_0 = self.base_sigma_0
@@ -174,6 +220,14 @@ class NearGoalRefinementController:
         self.mpc.update_params(retract_state=self.base_retract_state)
         if self.base_goal_weight is not None:
             self._set_goal_position_weight(self.base_goal_weight)
+        if self.base_stop_cost_weight is not None:
+            self._set_scalar_cost_weight("stop_cost", "stop_cost", self.base_stop_cost_weight)
+        if self.base_stop_cost_acc_weight is not None:
+            self._set_scalar_cost_weight(
+                "stop_cost_acc",
+                "stop_cost_acc",
+                self.base_stop_cost_acc_weight,
+            )
 
     def reset(self) -> None:
         self.active = False
@@ -208,6 +262,9 @@ class CartesianGoalRefiner:
         damping: float = 0.05,
         gain: float = 0.7,
         max_joint_step: float = 0.02,
+        blend_steps: int = 6,
+        max_command_slew: float = 0.01,
+        output_mode: str = "blend",
     ) -> None:
         self.rollout_fn = rollout_fn
         self.tensor_args = tensor_args
@@ -216,7 +273,15 @@ class CartesianGoalRefiner:
         self.damping = float(damping)
         self.gain = float(gain)
         self.max_joint_step = float(max_joint_step)
+        self.blend_steps = max(int(blend_steps), 1)
+        self.max_command_slew = float(max_command_slew)
+        self.output_mode = str(output_mode)
         self.active = False
+        self.transition_step = 0
+        self.last_command = None
+        self.last_step_norm = 0.0
+        self.last_gain_used = float(gain)
+        self.last_blend_ratio = 0.0
 
         self.robot_model = rollout_fn.dynamics_model.robot_model
         self.ee_link_name = rollout_fn.exp_params["model"]["ee_link_name"]
@@ -226,6 +291,10 @@ class CartesianGoalRefiner:
 
     def reset(self) -> None:
         self.active = False
+        self.transition_step = 0
+        self.last_command = None
+        self.last_step_norm = 0.0
+        self.last_blend_ratio = 0.0
 
     def update(self, error: float):
         just_entered = False
@@ -233,10 +302,14 @@ class CartesianGoalRefiner:
         if self.active:
             if error > self.exit_threshold:
                 self.active = False
+                self.transition_step = 0
+                self.last_command = None
                 just_exited = True
             return self.active, just_entered, just_exited
         if error <= self.enter_threshold:
             self.active = True
+            self.transition_step = 0
+            self.last_command = None
             just_entered = True
         return self.active, just_entered, just_exited
 
@@ -264,12 +337,66 @@ class CartesianGoalRefiner:
         )
         joint_step = self.gain * dls_step.squeeze(-1)
         joint_step = torch.clamp(joint_step, -self.max_joint_step, self.max_joint_step)
+        self.last_step_norm = float(torch.norm(joint_step).detach().cpu().item())
+        self.last_gain_used = float(self.gain)
         q_cmd = q_t.reshape(-1) + joint_step
         q_cmd = torch.max(
             torch.min(q_cmd, torch.as_tensor(self.q_upper, **self.tensor_args)),
             torch.as_tensor(self.q_lower, **self.tensor_args),
         )
         return q_cmd.detach().cpu().numpy()
+
+    def smooth_command(
+        self,
+        desired_command: np.ndarray,
+        nominal_command: Optional[np.ndarray],
+        current_q: np.ndarray,
+    ) -> np.ndarray:
+        desired = np.asarray(desired_command, dtype=np.float64).copy()
+        nominal = (
+            np.asarray(current_q, dtype=np.float64).copy()
+            if nominal_command is None
+            else np.asarray(nominal_command, dtype=np.float64).copy()
+        )
+
+        alpha = min(float(self.transition_step + 1) / float(self.blend_steps), 1.0)
+        blended = nominal + alpha * (desired - nominal)
+        self.last_blend_ratio = float(alpha)
+
+        prev = nominal if self.last_command is None else self.last_command
+        if self.max_command_slew > 0.0:
+            delta = np.clip(blended - prev, -self.max_command_slew, self.max_command_slew)
+            blended = prev + delta
+
+        self.last_command = blended.copy()
+        self.transition_step += 1
+        return blended
+
+    def postprocess_command(
+        self,
+        desired_command: np.ndarray,
+        nominal_command: Optional[np.ndarray],
+        current_q: np.ndarray,
+    ) -> np.ndarray:
+        if self.output_mode == "override":
+            desired = np.asarray(desired_command, dtype=np.float64).copy()
+            prev = (
+                np.asarray(current_q, dtype=np.float64).copy()
+                if self.last_command is None
+                else self.last_command
+            )
+            if self.max_command_slew > 0.0:
+                delta = np.clip(desired - prev, -self.max_command_slew, self.max_command_slew)
+                desired = prev + delta
+            self.last_blend_ratio = 1.0
+            self.last_command = desired.copy()
+            self.transition_step += 1
+            return desired
+        return self.smooth_command(
+            desired_command=desired_command,
+            nominal_command=nominal_command,
+            current_q=current_q,
+        )
 
 
 class StallMonitor:
@@ -362,18 +489,33 @@ class DeploymentRefinementStack:
 
         self.goal_hold = None
         self.near_goal = None
+        self.local_refinement = None
         self.cartesian = None
         self.stall_monitor = None
         self.cart_hold_threshold = 0.01
         self.cart_hold_count = 10
         self.cart_hold_streak = 0
+        self.goal_change_boost_cfg = dict(self.refinement_cfg.get("goal_change_boost", {}))
+        self._boost_active = False
+        self._boost_restore_error_threshold = None
+        self._base_sigma_0 = float(self.controller.sigma_0)
+        self._base_step_size_mean = float(self.controller.step_size_mean)
+        self.latest_local_refinement_stats = {
+            "local_refinement_active": False,
+            "local_refinement_mode": "off",
+            "local_refinement_step_norm": 0.0,
+            "local_refinement_gain_used": 0.0,
+            "local_refinement_blend_ratio": 0.0,
+        }
 
         if not self.enabled:
             return
 
         hold_cfg = dict(self.refinement_cfg.get("hold", {}))
         near_cfg = dict(self.refinement_cfg.get("near_goal_refinement", {}))
-        cart_cfg = dict(self.refinement_cfg.get("cartesian_refinement", {}))
+        local_cfg = dict(self.refinement_cfg.get("local_refinement", {}))
+        if not local_cfg:
+            local_cfg = dict(self.refinement_cfg.get("cartesian_refinement", {}))
         stall_cfg = dict(self.refinement_cfg.get("stall_recovery", {}))
 
         success_threshold = float(
@@ -404,20 +546,26 @@ class DeploymentRefinementStack:
                 sigma_scale=near_cfg.get("sigma_scale", 0.2),
                 stagnation_alpha=near_cfg.get("stagnation_alpha", 0.0),
                 goal_weight_scale=near_cfg.get("goal_weight_scale", 1.5),
+                stop_cost_scale=near_cfg.get("stop_cost_scale", 1.0),
+                stop_cost_acc_scale=near_cfg.get("stop_cost_acc_scale", 1.0),
                 tau_p=near_cfg.get("tau_p"),
                 step_size_mean=near_cfg.get("step_size_mean"),
             )
 
-        if cart_cfg.get("enabled", False):
-            self.cartesian = CartesianGoalRefiner(
+        if local_cfg.get("enabled", False):
+            self.local_refinement = CartesianGoalRefiner(
                 rollout_fn=self.rollout_fn,
                 tensor_args=tensor_args,
-                enter_threshold=cart_cfg.get("enter_threshold", success_threshold),
-                exit_threshold=cart_cfg.get("exit_threshold", 0.07),
-                damping=cart_cfg.get("damping", 0.05),
-                gain=cart_cfg.get("gain", 0.7),
-                max_joint_step=cart_cfg.get("max_joint_step", 0.02),
+                enter_threshold=local_cfg.get("dist_threshold", local_cfg.get("enter_threshold", success_threshold)),
+                exit_threshold=local_cfg.get("exit_threshold", 0.07),
+                damping=local_cfg.get("damping", 0.05),
+                gain=local_cfg.get("gain", 0.7),
+                max_joint_step=local_cfg.get("max_step", local_cfg.get("max_joint_step", 0.02)),
+                blend_steps=local_cfg.get("blend_steps", 6),
+                max_command_slew=local_cfg.get("max_command_slew", 0.01),
+                output_mode=local_cfg.get("output_mode", "blend"),
             )
+        self.cartesian = self.local_refinement
 
         if stall_cfg.get("enabled", False):
             self.stall_monitor = StallMonitor(
@@ -428,6 +576,29 @@ class DeploymentRefinementStack:
                 velocity_threshold=stall_cfg.get("velocity_threshold", 0.08),
                 cooldown=stall_cfg.get("cooldown", 8.0),
             )
+
+    def _apply_exploration_boost(
+        self,
+        sigma_scale: float,
+        step_size_mean: Optional[float],
+        restore_error_threshold: Optional[float],
+    ) -> None:
+        sigma_scale = float(max(sigma_scale, 1.0))
+        self.controller.sigma_0 = self._base_sigma_0 * sigma_scale
+        if step_size_mean is not None:
+            self.controller.step_size_mean = float(step_size_mean)
+        self._boost_active = True
+        self._boost_restore_error_threshold = (
+            None if restore_error_threshold is None else float(restore_error_threshold)
+        )
+
+    def _restore_exploration_boost(self) -> None:
+        if not self._boost_active:
+            return
+        self.controller.sigma_0 = self._base_sigma_0
+        self.controller.step_size_mean = self._base_step_size_mean
+        self._boost_active = False
+        self._boost_restore_error_threshold = None
 
     def _sync_reset(self, t_step: float, control_dt: float, message: Optional[str] = None) -> None:
         _reset_controller_distribution(self.mpc)
@@ -445,11 +616,27 @@ class DeploymentRefinementStack:
         if self.stall_monitor is not None:
             self.stall_monitor.reset()
         self.cart_hold_streak = 0
+        self._restore_exploration_boost()
+        self.latest_local_refinement_stats = {
+            "local_refinement_active": False,
+            "local_refinement_mode": "off",
+            "local_refinement_step_norm": 0.0,
+            "local_refinement_gain_used": 0.0,
+            "local_refinement_blend_ratio": 0.0,
+        }
 
     def on_goal_changed(self, t_step: float, control_dt: float) -> None:
         if not self.enabled:
             return
         self.reset_all()
+        if self.goal_change_boost_cfg.get("enabled", False):
+            self._apply_exploration_boost(
+                sigma_scale=self.goal_change_boost_cfg.get("sigma_scale", 9.0),
+                step_size_mean=self.goal_change_boost_cfg.get("step_size_mean", 0.45),
+                restore_error_threshold=self.goal_change_boost_cfg.get(
+                    "restore_error_threshold", 0.18
+                ),
+            )
         self._sync_reset(t_step, control_dt, "[CleanRefine] goal changed, reset refinement stack")
 
     def update_modes(
@@ -463,6 +650,18 @@ class DeploymentRefinementStack:
         if not self.enabled:
             return
 
+        if (
+            self._boost_active
+            and self._boost_restore_error_threshold is not None
+            and error <= self._boost_restore_error_threshold
+        ):
+            self._restore_exploration_boost()
+            self._sync_reset(
+                t_step,
+                control_dt,
+                f"[CleanRefine] restore nominal exploration @ {error:.4f}",
+            )
+
         if self.near_goal is not None:
             _, entered, exited = self.near_goal.update(error, q)
             if entered:
@@ -473,10 +672,10 @@ class DeploymentRefinementStack:
         if self.cartesian is not None:
             _, entered, exited = self.cartesian.update(error)
             if entered:
-                self._sync_reset(t_step, control_dt, f"[CleanRefine] enter Cartesian refinement @ {error:.4f}")
+                self._sync_reset(t_step, control_dt, f"[CleanRefine] enter local refinement @ {error:.4f}")
             elif exited:
                 self.cart_hold_streak = 0
-                self._sync_reset(t_step, control_dt, f"[CleanRefine] exit Cartesian refinement @ {error:.4f}")
+                self._sync_reset(t_step, control_dt, f"[CleanRefine] exit local refinement @ {error:.4f}")
 
         if self.cartesian is not None and self.goal_hold is not None:
             if self.cartesian.active and (not self.goal_hold.active):
@@ -503,6 +702,7 @@ class DeploymentRefinementStack:
         goal_ee_pos_robot: np.ndarray,
         t_step: float,
         control_dt: float,
+        nominal_position_cmd: Optional[np.ndarray] = None,
     ):
         if not self.enabled:
             return None
@@ -521,15 +721,43 @@ class DeploymentRefinementStack:
 
         if self.cartesian is not None and self.cartesian.active:
             try:
+                desired_command = self.cartesian.compute_command(
+                    q=q,
+                    dq=dq,
+                    goal_ee_pos_robot=goal_ee_pos_robot,
+                )
+                refined_command = self.cartesian.postprocess_command(
+                    desired_command=desired_command,
+                    nominal_command=nominal_position_cmd,
+                    current_q=q,
+                )
+                self.latest_local_refinement_stats = {
+                    "local_refinement_active": True,
+                    "local_refinement_mode": str(self.cartesian.output_mode),
+                    "local_refinement_step_norm": float(self.cartesian.last_step_norm),
+                    "local_refinement_gain_used": float(self.cartesian.last_gain_used),
+                    "local_refinement_blend_ratio": float(self.cartesian.last_blend_ratio),
+                }
                 return {
-                    "position": self.cartesian.compute_command(
-                        q=q,
-                        dq=dq,
-                        goal_ee_pos_robot=goal_ee_pos_robot,
-                    )
+                    "position": refined_command
                 }
             except Exception as exc:
                 self.log_fn(f"[CleanRefine] cartesian refinement failed, fallback to MPC: {exc}")
+        self.latest_local_refinement_stats = {
+            "local_refinement_active": bool(self.cartesian is not None and self.cartesian.active),
+            "local_refinement_mode": (
+                str(self.cartesian.output_mode)
+                if self.cartesian is not None and self.cartesian.active
+                else "off"
+            ),
+            "local_refinement_step_norm": 0.0,
+            "local_refinement_gain_used": (
+                float(self.cartesian.gain)
+                if self.cartesian is not None and self.cartesian.active
+                else 0.0
+            ),
+            "local_refinement_blend_ratio": 0.0,
+        }
 
         return None
 
@@ -550,6 +778,12 @@ class DeploymentRefinementStack:
             goal_world=goal_world,
             joint_velocity=joint_velocity,
         ):
+            stall_cfg = dict(self.refinement_cfg.get("stall_recovery", {}))
+            self._apply_exploration_boost(
+                sigma_scale=stall_cfg.get("sigma_scale", 16.0),
+                step_size_mean=stall_cfg.get("step_size_mean", 0.35),
+                restore_error_threshold=stall_cfg.get("restore_error_threshold", 0.18),
+            )
             self._sync_reset(t_step, control_dt, "[CleanRefine] stall recovery triggered")
             return True
         return False

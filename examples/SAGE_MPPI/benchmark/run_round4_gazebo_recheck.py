@@ -17,14 +17,20 @@ import yaml
 torch.multiprocessing.set_start_method("spawn", force=True)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", "..", ".."))
+SIM_GAZEBO_CONFIG_DIR = os.path.join(REPO_ROOT, "examples", "sim_gazebo", "config")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 if THIS_DIR not in sys.path:
     sys.path.insert(0, THIS_DIR)
 
 from experiment_logging import CsvExperimentLogger, normalize_step_record, summarize_episode
-from gazebo_obstacle_utils import _wait_for_future, _wait_for_service, iter_primitive_obstacles, spawn_gazebo_obstacles
+from examples.sim_gazebo.gazebo_obstacle_utils import (
+    _wait_for_future,
+    _wait_for_service,
+    iter_primitive_obstacles,
+    spawn_gazebo_obstacles,
+)
 from run_controller_batch import (
     _apply_seed,
     _build_task,
@@ -36,10 +42,10 @@ from run_controller_batch import (
 )
 
 
-ROBOT_FILE = os.path.join(THIS_DIR, "config", "ur7e_robot_gazebo.yml")
-INITIAL_POSITIONS_FILE = os.path.join(THIS_DIR, "config", "initial_positions.yaml")
-WORLD_OBSTACLE = os.path.join(THIS_DIR, "config", "collision_world_gazebo_obstacle.yml")
-WORLD_NARROW = os.path.join(THIS_DIR, "config", "collision_world_gazebo_tall.yml")
+ROBOT_FILE = os.path.join(SIM_GAZEBO_CONFIG_DIR, "ur7e_robot_gazebo.yml")
+INITIAL_POSITIONS_FILE = os.path.join(SIM_GAZEBO_CONFIG_DIR, "initial_positions.yaml")
+WORLD_OBSTACLE = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_obstacle.yml")
+WORLD_NARROW = os.path.join(SIM_GAZEBO_CONFIG_DIR, "collision_world_gazebo_tall.yml")
 
 SCENE_SPECS = {
     "obstacle_hard": {"scene": "default", "world_file": WORLD_OBSTACLE},
