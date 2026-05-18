@@ -1,8 +1,9 @@
 scene: tall
 description: >
-  Pilot infrastructure for the static tall-scene multi-target reaching
-  benchmark. This configuration records source paths and benchmark overrides;
-  source task files are not modified.
+  Tuned-reference pilot infrastructure for the static tall-scene multi-target
+  reaching benchmark. STORM and SAGE controller episodes are launched through
+  the tuned run_all shell-script call chains and monitored by wrappers; source
+  task files and reference scripts are not modified.
 
 paths:
   storm_tall_launcher: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
@@ -17,15 +18,21 @@ paths:
   collision_spheres_file: examples/sim_gazebo/config/ur7e_collision_spheres.yml
 
 benchmark_overrides:
-  backend: offline_controller_pilot
+  backend: tuned_reference_subprocess_wrapper
   headless: true
   scene: tall
   use_dynamic_obstacles: false
   use_sequential_retargeting: false
-  sage_deployment_refinement_enabled: false
-  sage_local_refinement_enabled: false
+  reset_after_each_target: true
+  target_injection: /target_pose
+  sage_deployment_refinement_enabled: true
+  sage_local_refinement_enabled: true
   sage_uses_clean_controller: true
   rrtstar_internal_validity_checker: static_collision_checker
+  storm_method_name: storm_mppi_tuned
+  sage_method_name: sage_mppi_tuned
+  storm_tuned_reference_script: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+  sage_tuned_reference_script: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
 
 metrics:
   success_definition: "final_ee_error < success_threshold and not collision and not timeout"

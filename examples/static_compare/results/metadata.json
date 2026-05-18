@@ -1,48 +1,36 @@
 {
-  "backend": "offline_controller_pilot",
-  "collision_checker": {
-    "implementation": "examples/static_compare/utils/static_collision_checker.py",
-    "include_ground": true,
-    "uses_gazebo": false,
-    "warnings": [
-      "Uses analytic link-sphere vs primitive-obstacle distances.",
-      "Does not query Gazebo contacts or Gazebo physics.",
-      "Does not include robot self-collision in this pilot checker."
-    ]
+  "backend": "tuned_reference_subprocess_wrapper",
+  "call_chains": {
+    "sage_mppi_tuned": {
+      "conda_env": "whole_control",
+      "config_path": "examples/SAGE_MPPI/clean_SAGE/config/ur7e_reacher_gazebo_tall_sage_clean.yml",
+      "deployment_refinement_enabled_by_tuned_config": true,
+      "entrypoint": "examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py",
+      "local_refinement_enabled_by_tuned_config": true,
+      "reference_script": "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh"
+    },
+    "storm_mppi_tuned": {
+      "conda_env": "storm_py310",
+      "config_path": "examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml",
+      "entrypoint": "examples/sim_gazebo/reach_static_ur7e_tall.py",
+      "reference_script": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh"
+    }
   },
-  "device": "cpu",
-  "episode_log": "/home/wqj/storm/examples/static_compare/results/static_tall_episode_log.csv",
-  "headless": true,
   "limitations": [
-    "Pilot uses an offline controller loop to validate infrastructure; it is not a final Gazebo benchmark result.",
-    "STORM/SAGE logged safety margins are computed by static_collision_checker for schema consistency.",
-    "SAGE deployment and local refinement stacks are not instantiated."
+    "The wrapper monitors tuned references through ROS topics and does not modify their controller code.",
+    "STORM/SAGE per-step optimize time is not exposed by the reference scripts, so planning_time is NaN.",
+    "Safety margin is recomputed by static_collision_checker from observed joint states for uniform logging."
   ],
   "max_steps": 300,
+  "max_wall_time": 90.0,
   "methods_requested": [
     "storm",
     "sage",
     "rrtstar"
   ],
-  "metric_definitions": {
-    "final_ee_error": "||p_ee(q_final) - p_goal||_2",
-    "final_joint_error": "||q_final - q_goal||_2",
-    "minimum_safety_margin": "minimum static_collision_checker geometric margin over discrete trajectory/path states",
-    "planning_time": "RRT*: OMPL solve wall time; STORM/SAGE: cumulative direct optimize wall time in offline pilot",
-    "smoothness_jerk": "mean norm of third finite difference in joint positions; NaN if fewer than 4 states",
-    "success": "final_ee_error < success_threshold and collision=False and timeout=False",
-    "trajectory_length_ee": "sum ||p_ee(q[t+1]) - p_ee(q[t])||_2",
-    "trajectory_length_joint": "sum ||q[t+1] - q[t]||_2"
-  },
-  "num_episode_rows": 15,
-  "num_step_rows": 1508,
-  "output_root": "/home/wqj/storm/examples/static_compare/results",
-  "paths": {
-    "robot_file": "/home/wqj/storm/examples/sim_gazebo/config/ur7e_robot_gazebo.yml",
-    "sage_task_file": "/home/wqj/storm/examples/SAGE_MPPI/clean_SAGE/config/ur7e_reacher_gazebo_tall_sage_clean.yml",
-    "storm_task_file": "/home/wqj/storm/examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml",
-    "world_file": "/home/wqj/storm/examples/sim_gazebo/config/collision_world_gazebo_tall.yml"
-  },
+  "num_episode_rows": 9,
+  "num_step_rows": 1932,
+  "reset_after_each_target": true,
   "rrtstar": {
     "available": true,
     "collision_check_resolution": 0.05,
@@ -51,14 +39,9 @@
     "planning_time_limit": 2.0,
     "skipped_reason": ""
   },
-  "sage_overrides": {
-    "deployment_refinement_enabled": false,
-    "local_refinement_enabled": false,
-    "uses_clean_controller": true
-  },
   "scene": "tall",
   "seed": 0,
-  "step_log": "/home/wqj/storm/examples/static_compare/results/static_tall_step_log.csv",
-  "success_threshold": 0.02,
+  "success_threshold": 0.05,
+  "target_injection": "/target_pose",
   "targets_path": "/home/wqj/storm/examples/static_compare/targets/static_tall_targets.json"
 }

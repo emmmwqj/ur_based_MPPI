@@ -1,6 +1,6 @@
 Static tall benchmark summary
 
-rrtstar: episodes=5, status=ok, success_rate=0.6, collision_rate=0, timeout_rate=0, mean_final_ee_error=0.26934, mean_min_margin=0.036993
+rrtstar: episodes=3, status=ok, success_rate=0.667, collision_rate=0, timeout_rate=0, mean_final_ee_error=0.19056, mean_min_margin=0.0089345
   skipped_reason: OMPL RRTstar returned only an approximate solution within the planning time limit
-sage_mppi_core: episodes=5, status=ok, success_rate=0, collision_rate=1, timeout_rate=0, mean_final_ee_error=0.57256, mean_min_margin=-0.0091424
-storm_mppi: episodes=5, status=ok, success_rate=1, collision_rate=0, timeout_rate=0, mean_final_ee_error=0.019851, mean_min_margin=0.042535
+sage_mppi_tuned: episodes=3, status=ok, success_rate=0, collision_rate=0, timeout_rate=1, mean_final_ee_error=0.18859, mean_min_margin=0.082341
+storm_mppi_tuned: episodes=3, status=ok, success_rate=0.333, collision_rate=0, timeout_rate=0.667, mean_final_ee_error=0.12924, mean_min_margin=0.075525

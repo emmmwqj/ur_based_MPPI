@@ -1,22 +1,21 @@
 Static tall benchmark integrity report
 status: pass
-passed: 16
+passed: 15
 warnings: 0
 failed: 0
 
 [pass] no_dynamic_scene_paths: No sim_dynamic or sage_sim_dynamic paths referenced.
 [pass] scene_is_tall: tall
-[pass] target_count_pilot_size: count=5
-[pass] target_tall_pilot_00_validity: ok
-[pass] target_tall_pilot_01_validity: ok
-[pass] target_tall_pilot_02_validity: ok
-[pass] target_tall_pilot_03_validity: ok
-[pass] target_tall_pilot_04_validity: ok
-[pass] storm_no_sage_logic: examples/sim_gazebo/bash/run_all_reach_static_tall.sh examples/sim_gazebo/reach_static_ur7e_tall.py examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml
+[pass] target_count_pilot_size: count=3
+[pass] target_tuned_tall_pilot_00_validity: ok
+[pass] target_tuned_tall_pilot_01_validity: ok
+[pass] target_tuned_tall_pilot_02_validity: ok
+[pass] storm_uses_tuned_reference: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+[pass] sage_uses_tuned_reference: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
 [pass] sage_clean_core_path: examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py
-[pass] sage_deployment_refinement_disabled: enabled=False
-[pass] sage_local_refinement_disabled: enabled=False
-[pass] sage_uses_native_margin_declared: SAGE core uses primitive collision cost; logged margin source is documented in metadata.
+[pass] sage_deployment_refinement_matches_tuned: enabled=True
+[pass] sage_local_refinement_matches_tuned: enabled=True
+[pass] reset_after_each_target: True
 [pass] rrtstar_uses_static_collision_checker: static_collision_checker
 [pass] rrtstar_ompl_import: OMPL Python binding imported.
 [pass] result_schema_consistency: Episode CSV fields match unified schema.

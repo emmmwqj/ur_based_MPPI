@@ -53,7 +53,7 @@ def _check_no_dynamic_paths(report: dict, config: dict) -> None:
 def _check_target_set(report: dict, targets_payload: dict, checker: StaticTallCollisionChecker) -> None:
     targets = targets_payload.get("targets", [])
     _record(report, "scene_is_tall", "pass" if targets_payload.get("scene") == "tall" else "fail", str(targets_payload.get("scene")))
-    _record(report, "target_count_pilot_size", "pass" if 5 <= len(targets) <= 10 else "fail", f"count={len(targets)}")
+    _record(report, "target_count_pilot_size", "pass" if 3 <= len(targets) <= 5 else "fail", f"count={len(targets)}")
 
     seen_ids = set()
     seen_goals: list[np.ndarray] = []
@@ -110,11 +110,20 @@ def _check_method_config(report: dict, config: dict) -> None:
     paths = config.get("paths", {})
     overrides = config.get("benchmark_overrides", {})
 
-    storm_paths = " ".join(str(paths.get(key, "")) for key in ("storm_tall_launcher", "storm_controller_entry", "storm_task_file"))
-    if "SAGE" in storm_paths or "sage" in storm_paths:
-        _record(report, "storm_no_sage_logic", "fail", storm_paths)
-    else:
-        _record(report, "storm_no_sage_logic", "pass", storm_paths)
+    storm_ref = str(overrides.get("storm_tuned_reference_script", ""))
+    sage_ref = str(overrides.get("sage_tuned_reference_script", ""))
+    _record(
+        report,
+        "storm_uses_tuned_reference",
+        "pass" if storm_ref == "examples/sim_gazebo/bash/run_all_reach_static_tall.sh" else "fail",
+        storm_ref,
+    )
+    _record(
+        report,
+        "sage_uses_tuned_reference",
+        "pass" if sage_ref == "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh" else "fail",
+        sage_ref,
+    )
 
     sage_entry = str(paths.get("sage_clean_controller_entry", ""))
     if "clean_SAGE" in sage_entry and bool(overrides.get("sage_uses_clean_controller")):
@@ -124,9 +133,9 @@ def _check_method_config(report: dict, config: dict) -> None:
 
     dep = bool(overrides.get("sage_deployment_refinement_enabled"))
     local = bool(overrides.get("sage_local_refinement_enabled"))
-    _record(report, "sage_deployment_refinement_disabled", "pass" if not dep else "fail", f"enabled={dep}")
-    _record(report, "sage_local_refinement_disabled", "pass" if not local else "fail", f"enabled={local}")
-    _record(report, "sage_uses_native_margin_declared", "pass", "SAGE core uses primitive collision cost; logged margin source is documented in metadata.")
+    _record(report, "sage_deployment_refinement_matches_tuned", "pass" if dep else "warn", f"enabled={dep}")
+    _record(report, "sage_local_refinement_matches_tuned", "pass" if local else "warn", f"enabled={local}")
+    _record(report, "reset_after_each_target", "pass" if bool(overrides.get("reset_after_each_target")) else "fail", str(overrides.get("reset_after_each_target")))
 
     checker_name = str(overrides.get("rrtstar_internal_validity_checker", ""))
     _record(

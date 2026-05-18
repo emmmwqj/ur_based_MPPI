@@ -11,38 +11,33 @@
       "status": "pass"
     },
     {
-      "detail": "count=5",
+      "detail": "count=3",
       "name": "target_count_pilot_size",
       "status": "pass"
     },
     {
       "detail": "ok",
-      "name": "target_tall_pilot_00_validity",
+      "name": "target_tuned_tall_pilot_00_validity",
       "status": "pass"
     },
     {
       "detail": "ok",
-      "name": "target_tall_pilot_01_validity",
+      "name": "target_tuned_tall_pilot_01_validity",
       "status": "pass"
     },
     {
       "detail": "ok",
-      "name": "target_tall_pilot_02_validity",
+      "name": "target_tuned_tall_pilot_02_validity",
       "status": "pass"
     },
     {
-      "detail": "ok",
-      "name": "target_tall_pilot_03_validity",
+      "detail": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh",
+      "name": "storm_uses_tuned_reference",
       "status": "pass"
     },
     {
-      "detail": "ok",
-      "name": "target_tall_pilot_04_validity",
-      "status": "pass"
-    },
-    {
-      "detail": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh examples/sim_gazebo/reach_static_ur7e_tall.py examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml",
-      "name": "storm_no_sage_logic",
+      "detail": "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh",
+      "name": "sage_uses_tuned_reference",
       "status": "pass"
     },
     {
@@ -51,18 +46,18 @@
       "status": "pass"
     },
     {
-      "detail": "enabled=False",
-      "name": "sage_deployment_refinement_disabled",
+      "detail": "enabled=True",
+      "name": "sage_deployment_refinement_matches_tuned",
       "status": "pass"
     },
     {
-      "detail": "enabled=False",
-      "name": "sage_local_refinement_disabled",
+      "detail": "enabled=True",
+      "name": "sage_local_refinement_matches_tuned",
       "status": "pass"
     },
     {
-      "detail": "SAGE core uses primitive collision cost; logged margin source is documented in metadata.",
-      "name": "sage_uses_native_margin_declared",
+      "detail": "True",
+      "name": "reset_after_each_target",
       "status": "pass"
     },
     {
@@ -87,7 +82,7 @@
     "Does not include robot self-collision in this pilot checker."
   ],
   "failed": 0,
-  "passed": 16,
+  "passed": 15,
   "status": "pass",
   "warnings": 0
 }

@@ -36,6 +36,8 @@ SUMMARY_FIELDS = [
     "mean_trajectory_length_joint",
     "mean_trajectory_length_ee",
     "mean_smoothness_jerk",
+    "rrtstar_exact_rate",
+    "rrtstar_approximate_rate",
     "skipped_reason",
 ]
 
@@ -101,6 +103,8 @@ def summarize(episode_rows: list[dict]) -> list[dict]:
                 "mean_trajectory_length_joint": _mean([_parse_float(r.get("trajectory_length_joint", "")) for r in rows]),
                 "mean_trajectory_length_ee": _mean([_parse_float(r.get("trajectory_length_ee", "")) for r in rows]),
                 "mean_smoothness_jerk": _mean([_parse_float(r.get("smoothness_jerk", "")) for r in rows]),
+                "rrtstar_exact_rate": _rate(rows, "rrtstar_exact_solution") if method == "rrtstar" else math.nan,
+                "rrtstar_approximate_rate": _rate(rows, "rrtstar_approximate_solution") if method == "rrtstar" else math.nan,
                 "skipped_reason": " | ".join(skipped_reasons),
             }
         )
