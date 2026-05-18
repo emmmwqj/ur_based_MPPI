@@ -1,0 +1,31 @@
+world_model:
+  coll_objs:
+    sphere:
+      sphere1:
+        radius: 0.1
+        position: [0.4, 0.4, 0.1]
+      dynamic_ball:
+        radius: 0.06
+        position: [0.4, -0.6, 0.4]
+
+    cube:
+      cube1:
+        dims: [0.3, 0.1, 0.6]
+        pose: [0.4, 0.2, 0.2, 0, 0, 0, 1.0]
+      cube2:
+        dims: [0.3, 0.1, 0.6]
+        pose: [0.4, -0.3, 0.2, 0, 0, 0, 1.0]
+      ground:
+        dims: [2.0, 2.0, 0.2]
+        pose: [0.0, 0.0, -0.1, 0, 0, 0, 1.0]
+
+  dynamic_obstacles:
+      dynamic_ball:
+        model_name: dynamic_ball
+        topic: /dynamic_ball/pose
+        radius: 0.06
+        initial_position: [0.4, -0.6, 0.4]
+        y_limits: [-0.6, 0.6]
+        speed: 0.1
+        update_hz: 20.0
+        reference_frame: world

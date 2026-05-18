@@ -30,10 +30,14 @@ echo ""
 
 LAUNCH_RVIZ=true
 RVIZ_PID=""
+RVIZ_CONFIG_FILE="${STORM_RVIZ_CONFIG:-$SCRIPT_DIR/config/reach_static_tall_validation.rviz}"
+PY_ARGS=()
 for arg in "$@"; do
     if [[ "$arg" == "--no-rviz" ]]; then
         LAUNCH_RVIZ=false
+        continue
     fi
+    PY_ARGS+=("$arg")
 done
 
 cleanup() {
@@ -54,9 +58,9 @@ if $LAUNCH_RVIZ; then
     (
         sleep 3
         echo "[RViz] 启动可视化..."
-        ros2 run rviz2 rviz2 -d "$SCRIPT_DIR/config/reach_static.rviz" 2>/dev/null
+        ros2 run rviz2 rviz2 -d "$RVIZ_CONFIG_FILE" 2>/dev/null
     ) &
     RVIZ_PID=$!
 fi
 
-python3 reach_static_ur7e_tall.py "$@"
+python3 reach_static_ur7e_tall.py "${PY_ARGS[@]}"

@@ -81,7 +81,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: MPPI Top5 Trajs
+      Name: MPPI Top Trajs
       Namespaces:
         {}
       Topic:

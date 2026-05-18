@@ -112,12 +112,33 @@ def _get_robot_pose_world(robot_params: dict):
 
 
 def _make_clean_task(tensor_args: dict) -> SageReacherTask:
-    return SageReacherTask(
+    task = SageReacherTask(
         task_file=TASK_FILE,
         robot_file=ROBOT_FILE,
         world_file=WORLD_FILE,
         tensor_args=tensor_args,
     )
+    _apply_execution_mode(task)
+    return task
+
+
+def _get_execution_mode(mpc) -> str:
+    mppi_cfg = getattr(mpc, "exp_params", {}).get("mppi", {})
+    mode = str(mppi_cfg.get("execution_mode", "mean")).strip().lower()
+    if mode not in ("best_sample", "mean"):
+        return "mean"
+    return mode
+
+
+def _apply_execution_mode(mpc) -> str:
+    mode = _get_execution_mode(mpc)
+    controller = getattr(mpc, "controller", None)
+    if controller is None:
+        return mode
+    use_best = mode == "best_sample"
+    if hasattr(controller, "execute_best"):
+        controller.execute_best = use_best
+    return mode
 
 
 def _configure_default_goal(mpc, robot_pos_world, robot_quat_xyzw, inv_transform_point_fn):
@@ -335,12 +356,6 @@ def _run_gazebo_main(args) -> int:
         def __init__(self, joint_names: list, control_rate: float = 50.0):
             super().__init__(joint_names, control_rate=control_rate)
             self._latest_sim_time = None
-            self.pub_collision_sphere_markers = self.create_publisher(
-                MarkerArray,
-                "/collision_sphere_markers",
-                10,
-            )
-            self.get_logger().info("  额外发布: /collision_sphere_markers")
 
         def _joint_state_callback(self, msg):
             self._latest_sim_time = float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) * 1.0e-9
@@ -360,12 +375,7 @@ def _run_gazebo_main(args) -> int:
 
             marker_array = MarkerArray()
             stamp = self.get_clock().now().to_msg()
-
-            clear_marker = Marker()
-            clear_marker.header.frame_id = "world"
-            clear_marker.header.stamp = stamp
-            clear_marker.action = Marker.DELETEALL
-            marker_array.markers.append(clear_marker)
+            current_count = 0
 
             if collision_spheres:
                 for marker_id, sphere in enumerate(collision_spheres):
@@ -373,9 +383,10 @@ def _run_gazebo_main(args) -> int:
                     marker.header.frame_id = "world"
                     marker.header.stamp = stamp
                     marker.ns = "collision_spheres"
-                    marker.id = marker_id
+                    marker.id = int(sphere.get("marker_id", marker_id))
                     marker.type = Marker.SPHERE
                     marker.action = Marker.ADD
+                    marker.frame_locked = True
                     marker.pose.position.x = float(sphere["center_world"][0])
                     marker.pose.position.y = float(sphere["center_world"][1])
                     marker.pose.position.z = float(sphere["center_world"][2])
@@ -385,7 +396,18 @@ def _run_gazebo_main(args) -> int:
                     marker.scale.z = 2.0 * sphere["radius"]
                     marker.color = ColorRGBA(r=1.0, g=0.78, b=0.12, a=0.45)
                     marker_array.markers.append(marker)
+                current_count = len(collision_spheres)
 
+            for marker_id in range(current_count, self._prev_collision_marker_count):
+                marker = Marker()
+                marker.header.frame_id = "world"
+                marker.header.stamp = stamp
+                marker.ns = "collision_spheres"
+                marker.id = marker_id
+                marker.action = Marker.DELETE
+                marker_array.markers.append(marker)
+
+            self._prev_collision_marker_count = current_count
             self.pub_collision_sphere_markers.publish(marker_array)
 
     robot_params, world_params = _load_robot_and_world_params()
@@ -476,6 +498,7 @@ def _run_gazebo_main(args) -> int:
         _log(f"deployment_refinement_enabled={refinement.enabled}")
         _log(f"local_refinement_enabled={refinement.local_refinement is not None}")
         _log(f"cartesian_refinement_enabled={refinement.cartesian is not None}")
+        _log(f"execution_mode={_get_execution_mode(mpc)}")
         _log("说明: /target_pose 只读取 position.x/y/z, 发布的 orientation 不参与目标更新")
         _log(
             "说明: deployment refinement / hold / Cartesian refinement 只生成关节目标; "

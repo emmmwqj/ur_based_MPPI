@@ -13,6 +13,7 @@ Only the task/world configs are swapped to the tall-scene variants.
 """
 
 import argparse
+import json
 import os
 import queue
 import signal
@@ -58,6 +59,13 @@ from storm_kit.mpc.utils.mpc_process_wrapper import ControlProcess
 from storm_kit.util_file import get_mpc_configs_path, join_path
 
 np.set_printoptions(precision=3, suppress=True)
+
+OFFICIAL_TASK_FILE = os.path.join(os.path.dirname(__file__), "config", "ur7e_reacher_gazebo_tall.yml")
+TASK_FILE = os.environ.get("STORM_TASK_FILE", OFFICIAL_TASK_FILE)
+DEFAULT_GOAL_WORLD = np.array(
+    json.loads(os.environ.get("STORM_DEFAULT_GOAL_WORLD", "[0.5, -0.45, 0.4]")),
+    dtype=np.float64,
+)
 
 
 def _log(message: str) -> None:
@@ -149,7 +157,43 @@ def _reset_control_process_timing(control_process, t_step: float, control_dt: fl
 def _recover_command(mpc, t_step: float, state: dict, control_dt: float):
     control_process = mpc.control_process
     _reset_control_process_timing(control_process, t_step, control_dt)
-    return mpc.get_command(t_step, state, control_dt=control_dt, WAIT=True)
+    return _get_sync_command(mpc, t_step, state, control_dt)
+
+
+def _get_execution_mode(mpc) -> str:
+    mppi_cfg = getattr(mpc, "exp_params", {}).get("mppi", {})
+    mode = str(mppi_cfg.get("execution_mode", "best_sample")).strip().lower()
+    if mode not in ("best_sample", "mean"):
+        return "best_sample"
+    return mode
+
+
+def _get_sync_command(mpc, t_step: float, state: dict, control_dt: float):
+    filt_state = mpc.state_filter.filter_joint_state(state)
+    state_tensor = mpc._state_to_tensor(filt_state)
+    next_command, _, _, _ = mpc.control_process.get_command_debug(
+        t_step,
+        state_tensor.numpy(),
+        control_dt=control_dt,
+    )
+
+    qdd_des = np.asarray(next_command, dtype=np.float64)
+    execution_mode = _get_execution_mode(mpc)
+    if execution_mode == "best_sample" and mpc.exp_params.get("control_space", "acc") == "acc":
+        best_traj = getattr(mpc.controller, "best_traj", None)
+        if best_traj is not None:
+            if isinstance(best_traj, torch.Tensor):
+                best_traj_np = best_traj.detach().cpu().numpy()
+            else:
+                best_traj_np = np.asarray(best_traj)
+            if best_traj_np.ndim == 2 and best_traj_np.shape[0] > 0 and best_traj_np.shape[1] == mpc.n_dofs:
+                qdd_des = np.asarray(best_traj_np[0], dtype=np.float64)
+                if getattr(mpc.control_process, "command", None) is not None:
+                    mpc.control_process.command[0] = best_traj_np
+
+    mpc.prev_qdd_des = qdd_des
+    cmd_des = mpc.state_filter.integrate_acc(qdd_des)
+    return cmd_des
 
 
 def _restart_control_process(mpc, join_timeout: float = 0.2) -> None:
@@ -168,7 +212,17 @@ class CollisionSphereVisualizer:
             sphere_params = yaml.safe_load(f)
 
         self.link_names = list(robot_collision_params["link_objs"])
-        self.spheres_by_link = sphere_params["collision_spheres"]
+        raw_spheres_by_link = sphere_params["collision_spheres"]
+        self.spheres_by_link = {}
+        marker_id = 0
+        for link_name in self.link_names:
+            self.spheres_by_link[link_name] = []
+            for sphere in raw_spheres_by_link.get(link_name, []):
+                sphere_entry = dict(sphere)
+                sphere_entry["marker_id"] = marker_id
+                self.spheres_by_link[link_name].append(sphere_entry)
+                marker_id += 1
+        self.total_sphere_count = marker_id
 
     def get_world_spheres(
         self,
@@ -187,6 +241,7 @@ class CollisionSphereVisualizer:
                 center_world = transform_point(robot_pos_world, robot_quat_xyzw, center_robot)
                 world_spheres.append(
                     {
+                        "marker_id": int(sphere["marker_id"]),
                         "link_name": link_name,
                         "center_world": center_world,
                         "radius": float(sphere["radius"]),
@@ -198,12 +253,6 @@ class CollisionSphereVisualizer:
 class TallGazeboRobotInterface(GazeboRobotInterface):
     def __init__(self, joint_names: list, control_rate: float = 50.0):
         super().__init__(joint_names, control_rate=control_rate)
-        self.pub_top_traj_markers = self.create_publisher(
-            MarkerArray,
-            "/mppi_top_traj_markers",
-            10,
-        )
-        self.get_logger().info("  额外发布: /mppi_top_traj_markers")
 
     def publish_markers(
         self,
@@ -214,31 +263,42 @@ class TallGazeboRobotInterface(GazeboRobotInterface):
     ):
         super().publish_markers(obstacles, goal_pos, ee_pos)
 
-        if not collision_spheres:
-            return
-
         marker_array = MarkerArray()
         stamp = self.get_clock().now().to_msg()
+        current_count = 0
 
-        for marker_id, sphere in enumerate(collision_spheres):
+        if collision_spheres:
+            for marker_id, sphere in enumerate(collision_spheres):
+                marker = Marker()
+                marker.header.frame_id = "world"
+                marker.header.stamp = stamp
+                marker.ns = "collision_spheres"
+                marker.id = int(sphere.get("marker_id", marker_id))
+                marker.type = Marker.SPHERE
+                marker.action = Marker.ADD
+                marker.frame_locked = True
+                marker.pose.position.x = float(sphere["center_world"][0])
+                marker.pose.position.y = float(sphere["center_world"][1])
+                marker.pose.position.z = float(sphere["center_world"][2])
+                marker.pose.orientation.w = 1.0
+                marker.scale.x = 2.0 * sphere["radius"]
+                marker.scale.y = 2.0 * sphere["radius"]
+                marker.scale.z = 2.0 * sphere["radius"]
+                marker.color = ColorRGBA(r=1.0, g=0.78, b=0.12, a=0.45)
+                marker_array.markers.append(marker)
+            current_count = len(collision_spheres)
+
+        for marker_id in range(current_count, self._prev_collision_marker_count):
             marker = Marker()
             marker.header.frame_id = "world"
             marker.header.stamp = stamp
             marker.ns = "collision_spheres"
             marker.id = marker_id
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
-            marker.pose.position.x = float(sphere["center_world"][0])
-            marker.pose.position.y = float(sphere["center_world"][1])
-            marker.pose.position.z = float(sphere["center_world"][2])
-            marker.pose.orientation.w = 1.0
-            marker.scale.x = 2.0 * sphere["radius"]
-            marker.scale.y = 2.0 * sphere["radius"]
-            marker.scale.z = 2.0 * sphere["radius"]
-            marker.color = ColorRGBA(r=1.0, g=0.78, b=0.12, a=0.45)
+            marker.action = Marker.DELETE
             marker_array.markers.append(marker)
 
-        self.pub_markers.publish(marker_array)
+        self._prev_collision_marker_count = current_count
+        self.pub_collision_sphere_markers.publish(marker_array)
 
     def publish_top_trajectories(self, top_trajs_world):
         marker_array = MarkerArray()
@@ -263,7 +323,7 @@ class TallGazeboRobotInterface(GazeboRobotInterface):
             line_marker.type = Marker.LINE_STRIP
             line_marker.action = Marker.ADD
             line_marker.pose.orientation.w = 1.0
-            line_marker.scale.x = 0.001
+            line_marker.scale.x = 0.002
             line_marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.95)
             line_marker.points = []
 
@@ -302,41 +362,79 @@ def _compute_link_poses_robot_frame(rollout_fn, q: np.ndarray, dq: np.ndarray, t
     return np.stack(link_pos_robot, axis=0), np.stack(link_rot_robot, axis=0)
 
 
-def _get_top_ee_trajs_world(mpc, robot_pos_world: np.ndarray, robot_quat_xyzw: np.ndarray, max_trajs: int = 5):
+def _get_top_ee_trajs_world(
+    mpc,
+    robot_pos_world: np.ndarray,
+    robot_quat_xyzw: np.ndarray,
+    current_ee_pos_world: np.ndarray,
+    max_trajs: int = 5,
+):
     controller = getattr(mpc, "controller", None)
     trajectories = getattr(controller, "trajectories", None)
     total_costs = getattr(controller, "total_costs", None)
-    if trajectories is None or total_costs is None:
-        return None
 
-    ee_pos_seq = trajectories.get("ee_pos_seq", None)
-    if ee_pos_seq is None:
-        return None
+    if trajectories is not None and total_costs is not None:
+        ee_pos_seq = trajectories.get("ee_pos_seq", None)
+        if ee_pos_seq is not None:
+            if isinstance(ee_pos_seq, torch.Tensor):
+                ee_pos_seq_np = ee_pos_seq.detach().cpu().numpy()
+            else:
+                ee_pos_seq_np = np.asarray(ee_pos_seq)
 
-    if isinstance(ee_pos_seq, torch.Tensor):
-        ee_pos_seq_np = ee_pos_seq.detach().cpu().numpy()
+            if isinstance(total_costs, torch.Tensor):
+                total_costs_np = total_costs.detach().cpu().numpy()
+            else:
+                total_costs_np = np.asarray(total_costs)
+
+            if ee_pos_seq_np.ndim == 3 and ee_pos_seq_np.shape[-1] == 3 and total_costs_np.ndim == 1:
+                top_count = min(max_trajs, ee_pos_seq_np.shape[0], total_costs_np.shape[0])
+                if top_count > 0:
+                    top_indices = np.argsort(total_costs_np)[:top_count]
+                    top_trajs_np = ee_pos_seq_np[top_indices]
+                else:
+                    return None
+            else:
+                return None
+        else:
+            return None
     else:
-        ee_pos_seq_np = np.asarray(ee_pos_seq)
+        top_trajs = getattr(mpc, "top_trajs", None)
+        if top_trajs is None and controller is not None:
+            top_trajs = getattr(controller, "top_trajs", None)
+        if top_trajs is None:
+            return None
+        if isinstance(top_trajs, torch.Tensor):
+            top_trajs_np = top_trajs.detach().cpu().numpy()
+        else:
+            top_trajs_np = np.asarray(top_trajs)
+        if top_trajs_np.ndim == 2:
+            top_trajs_np = top_trajs_np[None, ...]
 
-    if isinstance(total_costs, torch.Tensor):
-        total_costs_np = total_costs.detach().cpu().numpy()
-    else:
-        total_costs_np = np.asarray(total_costs)
-
-    if ee_pos_seq_np.ndim != 3 or ee_pos_seq_np.shape[-1] != 3 or total_costs_np.ndim != 1:
+    if top_trajs_np.ndim != 3 or top_trajs_np.shape[-1] != 3:
         return None
 
-    top_count = min(max_trajs, ee_pos_seq_np.shape[0], total_costs_np.shape[0])
+    top_count = min(max_trajs, top_trajs_np.shape[0])
     if top_count <= 0:
         return None
+    top_trajs_np = top_trajs_np[:top_count]
 
-    top_indices = np.argsort(total_costs_np)[:top_count]
-    top_trajs_np = ee_pos_seq_np[top_indices]
+    current_ee_pos_world = np.asarray(current_ee_pos_world, dtype=np.float64).reshape(1, 3)
+    world_trajs = []
+    for traj_points in top_trajs_np:
+        traj_points_world = transform_point(robot_pos_world, robot_quat_xyzw, traj_points)
+        if traj_points_world.ndim != 2 or traj_points_world.shape[-1] != 3:
+            continue
+        if len(traj_points_world) == 0:
+            continue
+        if np.linalg.norm(traj_points_world[0] - current_ee_pos_world[0]) < 1.0e-4:
+            stitched = traj_points_world
+        else:
+            stitched = np.concatenate([current_ee_pos_world, traj_points_world], axis=0)
+        world_trajs.append(stitched)
 
-    return np.asarray(
-        [transform_point(robot_pos_world, robot_quat_xyzw, traj_points) for traj_points in top_trajs_np],
-        dtype=np.float64,
-    )
+    if not world_trajs:
+        return None
+    return world_trajs
 
 
 def mpc_control_main(args):
@@ -361,7 +459,7 @@ def mpc_control_main(args):
 
         config_dir = os.path.join(os.path.dirname(__file__), "config")
         robot_file = os.path.join(config_dir, "ur7e_robot_gazebo.yml")
-        task_file = os.path.join(config_dir, "ur7e_reacher_gazebo_tall.yml")
+        task_file = TASK_FILE
         world_file = os.path.join(config_dir, "collision_world_gazebo_tall.yml")
 
         _log("\n加载配置文件...")
@@ -433,16 +531,17 @@ def mpc_control_main(args):
         }
 
         mpc = GazeboReacherTask(task_file, robot_file, world_file, tensor_args)
+        mpc.set_position_only_goal_mode()
         control_dt = mpc.exp_params.get("control_dt", 0.02)
         _log(f"MPC 控制周期: {control_dt} s ({1.0 / control_dt:.1f} Hz)")
+        _log("目标模式: position-only (/target_pose 只约束 xyz, 不约束末端姿态)")
 
         default_goal_seed_state = np.array([0.5, -1.2, 1.2, -1.57, -1.57, 0.0, 0, 0, 0, 0, 0, 0])
         mpc.update_params(goal_state=default_goal_seed_state)
 
-        goal_ee_quat = np.ravel(mpc.controller.rollout_fn.goal_ee_quat.cpu().numpy())
-        goal_ee_world = np.array([0.5, -0.45, 0.4], dtype=np.float64)
+        goal_ee_world = DEFAULT_GOAL_WORLD.copy()
         goal_ee_pos_robot = inv_transform_point(robot_pos, robot_quat_xyzw, goal_ee_world)
-        mpc.update_params(goal_ee_pos=goal_ee_pos_robot, goal_ee_quat=goal_ee_quat)
+        mpc.update_params(goal_ee_pos=goal_ee_pos_robot)
 
         _log(f"\n默认目标末端位置 (机器人坐标系): {goal_ee_pos_robot}")
         _log(f"默认目标末端位置 (世界坐标系): {goal_ee_world}")
@@ -464,13 +563,14 @@ def mpc_control_main(args):
         _log("\n提示:")
         _log("  - 当前使用高墙场景 primitive world 避障")
         _log("  - 发布 PoseStamped 到 /target_pose 可动态更新目标")
+        _log("  - /target_pose 的 orientation 不参与目标更新")
         _log("  - 在 RViz 中查看 /visualization_marker_array")
-        _log("  - 在 RViz 中查看 /mppi_top_traj_markers (MPPI top-5 预测轨迹)")
+        _log("  - 在 RViz 中查看 /mppi_top_traj_markers (MPPI 前若干条预测轨迹)")
         _log("  - Gazebo 中已真实生成高墙/球体障碍物，可直接观察物理碰撞")
         _log("  - 红球=目标, 绿球=末端, 蓝色障碍物=高墙场景")
         _log(f"  - 黄球=机械臂碰撞球模型 ({n_collision_spheres} 个)")
-        _log("  - 红线=MPPI top-5 末端预测轨迹")
-        _log("  - 控制器使用同步求解，避免 async 命令时域耗尽")
+        _log("  - 红线=MPPI 前若干条末端预测轨迹")
+        _log(f"  - 控制器使用同步求解，执行模式={_get_execution_mode(mpc)}")
         _log("")
 
         _log("预热 MPC 控制器...")
@@ -483,7 +583,7 @@ def mpc_control_main(args):
                 current_state = robot.get_state()
                 continue
             try:
-                mpc.get_command(warm_idx * control_dt, current_state, control_dt=control_dt, WAIT=True)
+                _get_sync_command(mpc, warm_idx * control_dt, current_state, control_dt)
             except Exception as exc:
                 _log(f"预热异常 (可忽略): {exc}")
             time.sleep(0.01)
@@ -513,15 +613,15 @@ def mpc_control_main(args):
                 if np.linalg.norm(target_robot - current_goal_ee) > 0.005:
                     current_goal_ee = target_robot.copy()
                     current_goal_world = new_target.copy()
-                    mpc.update_params(goal_ee_pos=current_goal_ee, goal_ee_quat=goal_ee_quat)
+                    mpc.update_params(goal_ee_pos=current_goal_ee)
                     _log(
                         "[目标更新] 世界: %s, 机器人: %s"
                         % (np.round(current_goal_world, 3), np.round(current_goal_ee, 3))
                     )
                     try:
-                        _restart_control_process(mpc, join_timeout=0.2)
-                        cmd = mpc.get_command(t_step, state, control_dt=control_dt, WAIT=True)
-                        _log("[目标更新] 已同步重规划并重置异步控制进程")
+                        _reset_control_process_timing(mpc.control_process, t_step, control_dt)
+                        cmd = _get_sync_command(mpc, t_step, state, control_dt)
+                        _log("[目标更新] 已同步重规划并重置 MPC 时间基准")
                     except Exception as sync_exc:
                         _log(f"[MPC异常] 目标更新后的同步重规划失败: {sync_exc}")
                         time.sleep(control_dt)
@@ -529,7 +629,7 @@ def mpc_control_main(args):
 
             if cmd is None:
                 try:
-                    cmd = mpc.get_command(t_step, state, control_dt=control_dt, WAIT=True)
+                    cmd = _get_sync_command(mpc, t_step, state, control_dt)
                 except (IndexError, RuntimeError, ValueError) as exc:
                     _log(
                         "[MPC恢复] 同步取命令失败 (%s)，重置控制进程时间基准后重规划"
@@ -580,6 +680,7 @@ def mpc_control_main(args):
                 mpc,
                 robot_pos,
                 robot_quat_xyzw,
+                ee_pos_world,
                 max_trajs=5,
             )
             robot.publish_top_trajectories(top_trajs_world)
@@ -592,6 +693,10 @@ def mpc_control_main(args):
                     f"q=[{q[0]:+.2f}, {q[1]:+.2f}, {q[2]:+.2f}, {q[3]:+.2f}, {q[4]:+.2f}, {q[5]:+.2f}] | "
                     f"ee_error={error:.4f} | opt_dt={mpc.opt_dt:.3f}s"
                 )
+
+            if args.max_steps > 0 and loop_count >= args.max_steps:
+                _log(f"达到 max_steps={args.max_steps}，结束本轮运行")
+                break
 
             elapsed = time.time() - iter_start
             sleep_time = control_dt - elapsed
@@ -645,5 +750,6 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", action="store_true", default=True, help="使用 CUDA 加速 (默认: True)")
     parser.add_argument("--no-cuda", dest="cuda", action="store_false", help="禁用 CUDA")
     parser.add_argument("--rate", type=float, default=50.0, help="控制频率 Hz (默认: 50)")
+    parser.add_argument("--max-steps", type=int, default=0, help="最大控制步数，0 表示不限")
     args = parser.parse_args()
     sys.exit(mpc_control_main(args))

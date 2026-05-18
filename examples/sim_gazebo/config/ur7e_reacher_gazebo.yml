@@ -163,6 +163,7 @@ mppi:
   kappa: 0.005
   null_act_frac: 0.01
   sample_mode: 'mean'
+  execution_mode: 'best_sample'
   base_action: 'repeat'
   squash_fn: 'clamp'
   hotstart: True

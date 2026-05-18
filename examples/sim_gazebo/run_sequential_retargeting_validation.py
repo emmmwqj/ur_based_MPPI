@@ -18,10 +18,11 @@ import yaml
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-STORM_ROOT = SCRIPT_DIR.parents[2]
-OFFICIAL_TASK_FILE = SCRIPT_DIR / "config" / "ur7e_reacher_gazebo_tall_sage_clean.yml"
-INITIAL_POSITIONS_FILE = STORM_ROOT / "examples" / "sim_gazebo" / "config" / "initial_positions.yaml"
-WORLD_FILE = STORM_ROOT / "examples" / "sim_gazebo" / "config" / "collision_world_gazebo_tall.yml"
+BASH_DIR = SCRIPT_DIR / "bash"
+OFFICIAL_TASK_FILE = SCRIPT_DIR / "config" / "ur7e_reacher_gazebo_tall.yml"
+INITIAL_POSITIONS_FILE = SCRIPT_DIR / "config" / "initial_positions.yaml"
+WORLD_FILE = SCRIPT_DIR / "config" / "collision_world_gazebo_tall.yml"
+RVIZ_CONFIG_FILE = SCRIPT_DIR / "config" / "reach_static_tall_validation.rviz"
 DEFAULT_OUTPUT_ROOT = SCRIPT_DIR / "regression_outputs" / "sequential_retargeting"
 DEFAULT_SEEDS = [0, 1, 2]
 
@@ -34,6 +35,10 @@ TARGET_SEQUENCE = [
     {"name": "p5", "x": 0.36, "y": -0.57, "z": 0.43, "publish": True},
     {"name": "p6", "x": 0.4, "y": 0.1, "z": 0.1, "publish": True},
 ]
+
+LOG_RE = re.compile(
+    r"\[\s*(?P<step>\d+)\]\s+t=(?P<t>[0-9.]+)s\s+\|\s+q=\[[^\]]*\]\s+\|\s+ee_error=(?P<ee>[0-9.]+)\s+\|\s+opt_dt=(?P<opt>[0-9.]+)s"
+)
 
 
 def _bash(command: str) -> subprocess.CompletedProcess:
@@ -58,7 +63,8 @@ def _kill_matching(regex: str) -> None:
 def _cleanup_existing() -> None:
     _kill_matching("ros2 launch ur_simulation_gazebo ur_sim_control.launch.py")
     _kill_matching("gzserver .*libgazebo_ros_init.so .*libgazebo_ros_factory.so .*libgazebo_ros_force_system.so")
-    _kill_matching("/tmp/sage_sequential_retargeting.*/run_reach_static_tall.sh .*--max-steps")
+    _kill_matching("/home/wqj/storm/examples/sim_gazebo/run_reach_static_tall.sh .*--max-steps")
+    _kill_matching("/home/wqj/storm/examples/sim_gazebo/bash/run_sequential_retargeting_validation.sh")
     time.sleep(2.0)
 
 
@@ -90,7 +96,7 @@ def _publish_target(target: dict) -> None:
     )
     _bash(
         "source /opt/ros/humble/setup.bash >/dev/null 2>&1; "
-        f"ros2 topic pub /target_pose geometry_msgs/PoseStamped {json.dumps(msg)} -1 >/dev/null 2>&1"
+        f"timeout 5s ros2 topic pub /target_pose geometry_msgs/PoseStamped {json.dumps(msg)} -1 >/dev/null 2>&1"
     )
 
 
@@ -113,13 +119,12 @@ ros2 launch ur_simulation_gazebo ur_sim_control.launch.py \
         stderr=subprocess.STDOUT,
         text=True,
     )
-    proc._sage_log_handle = log_handle  # type: ignore[attr-defined]
+    proc._storm_log_handle = log_handle  # type: ignore[attr-defined]
     return proc
 
 
 def _make_seed_config(output_dir: Path, seed: int) -> Path:
     task_cfg = yaml.safe_load(OFFICIAL_TASK_FILE.read_text())
-    task_cfg["control_dt"] = 0.05
     task_cfg.setdefault("mppi", {}).setdefault("sample_params", {})["seed"] = int(seed)
     out_file = output_dir / "task.yml"
     out_file.write_text(yaml.safe_dump(task_cfg, sort_keys=False))
@@ -130,7 +135,9 @@ def _spawn_controller(task_file: Path, run_log: Path, max_steps: int, launch_rvi
     rviz_flag = "" if launch_rviz else " --no-rviz"
     command = (
         f"cd {json.dumps(str(SCRIPT_DIR))} && "
-        f"SAGE_TASK_FILE={json.dumps(str(task_file))} "
+        f"STORM_TASK_FILE={json.dumps(str(task_file))} "
+        f"STORM_DEFAULT_GOAL_WORLD={json.dumps(json.dumps([0.4, -0.5, 0.4]))} "
+        f"STORM_RVIZ_CONFIG={json.dumps(str(RVIZ_CONFIG_FILE))} "
         f"./run_reach_static_tall.sh{rviz_flag} --max-steps {max_steps}"
     )
     log_handle = run_log.open("w")
@@ -140,7 +147,7 @@ def _spawn_controller(task_file: Path, run_log: Path, max_steps: int, launch_rvi
         stderr=subprocess.STDOUT,
         text=True,
     )
-    proc._sage_log_handle = log_handle  # type: ignore[attr-defined]
+    proc._storm_log_handle = log_handle  # type: ignore[attr-defined]
     return proc
 
 
@@ -162,7 +169,7 @@ def _stop_process_group(proc: subprocess.Popen, grace_s: float = 5.0) -> None:
     except ProcessLookupError:
         pass
     finally:
-        handle = getattr(proc, "_sage_log_handle", None)
+        handle = getattr(proc, "_storm_log_handle", None)
         if handle is not None:
             try:
                 handle.close()
@@ -214,13 +221,6 @@ def _validate_targets(sequence: list[dict]) -> list[str]:
     return issues
 
 
-LOG_RE = re.compile(
-    r"\[\s*(?P<step>\d+)\]\s+t=(?P<t>[0-9.]+)s\s+\|\s+ee_error=(?P<ee>[0-9.]+)\s+\|.*?"
-    r"lr_active=(?P<lr>True|False)\s+\|.*?"
-    r"actual_loop_dt_wall=(?P<wall>[0-9.nan]+)s\s+\|\s+actual_loop_dt_sim=(?P<sim>[0-9.nan]+)s\s+\|\s+opt_dt=(?P<opt>[0-9.]+)s"
-)
-
-
 class LogMonitor:
     def __init__(self, log_file: Path):
         self.log_file = log_file
@@ -245,9 +245,6 @@ class LogMonitor:
                     "step": int(m.group("step")),
                     "t": float(m.group("t")),
                     "ee_error": float(m.group("ee")),
-                    "lr_active": m.group("lr") == "True",
-                    "actual_loop_dt_wall": float(m.group("wall")) if m.group("wall") != "nan" else math.nan,
-                    "actual_loop_dt_sim": float(m.group("sim")) if m.group("sim") != "nan" else math.nan,
                     "opt_dt": float(m.group("opt")),
                 }
             )
@@ -268,6 +265,7 @@ class LogMonitor:
 
 def _wait_for_segment(
     monitor: LogMonitor,
+    ctrl_proc: subprocess.Popen,
     target: dict,
     publish: bool,
     timeout_s: float,
@@ -290,13 +288,21 @@ def _wait_for_segment(
     final_error = math.nan
     t_lt_2cm = None
     t_lt_5mm = None
-    lr_trigger_count = 0
-    lr_active_seen = False
-    prev_lr = False
+    stalled = False
+    stall_reason = None
+    controller_exited = False
+    sim_timeout_reached = False
+    stall_window_s = 5.0
+    stall_error_band = 0.01
+    stall_error_floor = 0.05
 
     while time.time() < deadline:
         monitor.poll()
         if len(monitor.events) <= start_index:
+            if ctrl_proc.poll() is not None:
+                controller_exited = True
+                stall_reason = "controller_exited"
+                break
             time.sleep(0.1)
             continue
 
@@ -310,19 +316,39 @@ def _wait_for_segment(
                 t_lt_2cm = max(0.0, event["t"] - switch_t)
             if t_lt_5mm is None and ee < 0.005:
                 t_lt_5mm = max(0.0, event["t"] - switch_t)
-            if event["lr_active"]:
-                lr_active_seen = True
-            if event["lr_active"] and not prev_lr:
-                lr_trigger_count += 1
-            prev_lr = event["lr_active"]
 
             if ee < 0.005:
                 stable_hits += 1
             else:
                 stable_hits = 0
 
+            if (event["t"] - switch_t) >= timeout_s:
+                stalled = True
+                stall_reason = "segment_timeout"
+                sim_timeout_reached = True
+                break
+
         if stable_hits >= stable_hits_required:
             break
+        if sim_timeout_reached:
+            break
+
+        if ctrl_proc.poll() is not None:
+            controller_exited = True
+            stall_reason = "controller_exited"
+            break
+
+        latest = monitor.events[-1] if monitor.events else None
+        if latest is not None:
+            recent = [e for e in monitor.events if e["t"] >= latest["t"] - stall_window_s]
+            if (
+                len(recent) >= 4
+                and latest["ee_error"] > stall_error_floor
+                and (max(e["ee_error"] for e in recent) - min(e["ee_error"] for e in recent)) < stall_error_band
+            ):
+                stalled = True
+                stall_reason = "no_progress"
+                break
         time.sleep(0.1)
 
     rebound = bool(not math.isnan(final_error) and final_error > min_error + 0.01)
@@ -340,9 +366,10 @@ def _wait_for_segment(
         "final_ee_error": final_error,
         "min_ee_error": min_error,
         "rebound": rebound,
-        "lr_triggered": lr_active_seen,
-        "lr_trigger_count": lr_trigger_count,
         "stable_stop": stable_stop,
+        "stalled": stalled,
+        "controller_exited": controller_exited,
+        "stall_reason": stall_reason,
     }
 
 
@@ -374,27 +401,58 @@ def _run_sequence(
 
         ctrl_proc = _spawn_controller(task_file, run_log, max_steps=max_steps, launch_rviz=launch_rviz)
         try:
-            _wait_log_contains(run_log, "说明: /target_pose", timeout_s=60.0)
+            _wait_log_contains(run_log, "发布 PoseStamped 到 /target_pose", timeout_s=60.0)
             monitor = LogMonitor(run_log)
             monitor.wait_for_first_event(timeout_s=60.0)
 
             segments = []
             for target in TARGET_SEQUENCE:
                 segments.append(
-                    _wait_for_segment(
-                        monitor=monitor,
-                        target=target,
-                        publish=target["publish"],
-                        timeout_s=segment_timeout_s,
-                        stable_hits_required=stable_hits_required,
+                        _wait_for_segment(
+                            monitor=monitor,
+                            ctrl_proc=ctrl_proc,
+                            target=target,
+                            publish=target["publish"],
+                            timeout_s=segment_timeout_s,
+                            stable_hits_required=stable_hits_required,
+                        )
                     )
-                )
+                if segments[-1].get("controller_exited"):
+                    break
+
+            if segments and segments[-1].get("controller_exited"):
+                completed_targets = {seg["target"] for seg in segments}
+                for target in TARGET_SEQUENCE:
+                    if target["name"] in completed_targets:
+                        continue
+                    segments.append(
+                        {
+                            "target": target["name"],
+                            "switch_t": math.nan,
+                            "pre_switch_ee_error": math.nan,
+                            "peak_ee_error": math.nan,
+                            "time_to_lt_2cm": None,
+                            "time_to_lt_5mm": None,
+                            "final_ee_error": math.inf,
+                            "min_ee_error": math.nan,
+                            "rebound": False,
+                            "stable_stop": False,
+                            "stalled": True,
+                            "controller_exited": True,
+                            "stall_reason": "controller_exited",
+                        }
+                    )
         finally:
             _stop_process_group(ctrl_proc)
     finally:
         _stop_process_group(gazebo_proc)
 
-    worst = max(segments, key=lambda x: x["final_ee_error"] if not math.isnan(x["final_ee_error"]) else -1.0)
+    worst = max(
+        segments,
+        key=lambda x: x["final_ee_error"]
+        if isinstance(x["final_ee_error"], (int, float)) and not math.isnan(x["final_ee_error"])
+        else -1.0,
+    )
     return {
         "seed": seed,
         "target_sequence": TARGET_SEQUENCE,
@@ -424,7 +482,7 @@ def _aggregate_runs(results: list[dict]) -> dict:
                 "lt_2cm_rate": sum(1 for s in segs if s["final_ee_error"] < 0.02) / len(segs),
                 "lt_5mm_rate": sum(1 for s in segs if s["final_ee_error"] < 0.005) / len(segs),
                 "rebound_count": sum(1 for s in segs if s["rebound"]),
-                "lr_triggered_count": sum(1 for s in segs if s["lr_triggered"]),
+                "stalled_count": sum(1 for s in segs if s.get("stalled")),
                 "worst_final_ee_error": max(finals),
             }
         )
@@ -436,7 +494,7 @@ def _aggregate_runs(results: list[dict]) -> dict:
         "overall_lt_2cm_rate": sum(1 for s in all_segments if s["final_ee_error"] < 0.02) / len(all_segments),
         "overall_lt_5mm_rate": sum(1 for s in all_segments if s["final_ee_error"] < 0.005) / len(all_segments),
         "rebound_count": sum(1 for s in all_segments if s["rebound"]),
-        "lr_triggered_rate": sum(1 for s in all_segments if s["lr_triggered"]) / len(all_segments),
+        "stalled_count": sum(1 for s in all_segments if s.get("stalled")),
         "worst_segment": worst,
         "segments": aggregated_segments,
     }
@@ -448,7 +506,7 @@ def _format_ratio(x: float) -> str:
 
 def _render_report(summary: dict) -> str:
     lines = []
-    lines.append("# Sequential Retargeting Regression Report")
+    lines.append("# Baseline STORM MPPI Sequential Retargeting Report")
     lines.append("")
     lines.append(f"- Config: `{OFFICIAL_TASK_FILE}`")
     lines.append(f"- Seeds: `{summary.get('seeds', [])}`")
@@ -456,9 +514,7 @@ def _render_report(summary: dict) -> str:
     lines.append("## Target Sequence")
     lines.append("")
     for target in summary.get("target_sequence", []):
-        lines.append(
-            f"- {target['name']}: ({target['x']}, {target['y']}, {target['z']})"
-        )
+        lines.append(f"- {target['name']}: ({target['x']}, {target['y']}, {target['z']})")
     lines.append("")
     agg = summary.get("aggregate", {})
     lines.append("## Overall")
@@ -468,18 +524,17 @@ def _render_report(summary: dict) -> str:
     lines.append(f"- <2cm success rate: `{_format_ratio(agg.get('overall_lt_2cm_rate', 0.0))}`")
     lines.append(f"- <5mm success rate: `{_format_ratio(agg.get('overall_lt_5mm_rate', 0.0))}`")
     lines.append(f"- Rebound count: `{agg.get('rebound_count', 0)}`")
-    lines.append(f"- Local refinement triggered rate: `{_format_ratio(agg.get('lr_triggered_rate', 0.0))}`")
+    lines.append(f"- Stalled count: `{agg.get('stalled_count', 0)}`")
     lines.append("")
     lines.append("## Per-Target Summary")
     lines.append("")
-    lines.append("| Target | Mean Final EE Error | <2cm | <5mm | Rebound Count | LR Triggered | Worst Final |")
+    lines.append("| Target | Mean Final EE Error | <2cm | <5mm | Rebound Count | Stalled Count | Worst Final |")
     lines.append("|---|---:|---:|---:|---:|---:|---:|")
     for seg in agg.get("segments", []):
         lines.append(
             f"| {seg['target']} | {seg['mean_final_ee_error']:.6f} | "
             f"{_format_ratio(seg['lt_2cm_rate'])} | {_format_ratio(seg['lt_5mm_rate'])} | "
-            f"{seg['rebound_count']} | {seg['lr_triggered_count']}/{seg['num_runs']} | "
-            f"{seg['worst_final_ee_error']:.6f} |"
+            f"{seg['rebound_count']} | {seg['stalled_count']} | {seg['worst_final_ee_error']:.6f} |"
         )
     lines.append("")
     worst = agg.get("worst_segment", {})
@@ -493,13 +548,38 @@ def _render_report(summary: dict) -> str:
         lines.append(f"- <2cm time: `{worst.get('time_to_lt_2cm')}`")
         lines.append(f"- <5mm time: `{worst.get('time_to_lt_5mm')}`")
         lines.append(f"- Rebound: `{worst.get('rebound')}`")
-        lines.append(f"- Local refinement triggered: `{worst.get('lr_triggered')}`")
+        lines.append(f"- Stalled: `{worst.get('stalled')}`")
+        lines.append(f"- Stall reason: `{worst.get('stall_reason')}`")
+    lines.append("")
+    lines.append("## Detailed Per-Run Segments")
+    lines.append("")
+    for run in summary.get("runs", []):
+        seed = run.get("seed")
+        lines.append(f"### Seed {seed}")
+        lines.append("")
+        lines.append("| Target | Peak EE Error | Min EE Error | Final EE Error | <2cm Time | <5mm Time | Rebound | Stalled | Stall Reason |")
+        lines.append("|---|---:|---:|---:|---:|---:|---|---|---|")
+        for seg in run.get("segments", []):
+            t2 = seg.get("time_to_lt_2cm")
+            t5 = seg.get("time_to_lt_5mm")
+            lines.append(
+                f"| {seg['target']} | "
+                f"{seg.get('peak_ee_error', float('nan')):.6f} | "
+                f"{seg.get('min_ee_error', float('nan')):.6f} | "
+                f"{seg.get('final_ee_error', float('nan')):.6f} | "
+                f"{'-' if t2 is None else f'{t2:.2f}s'} | "
+                f"{'-' if t5 is None else f'{t5:.2f}s'} | "
+                f"{seg.get('rebound')} | "
+                f"{seg.get('stalled') or seg.get('controller_exited')} | "
+                f"{seg.get('stall_reason') or '-'} |"
+            )
+        lines.append("")
     lines.append("")
     return "\n".join(lines)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate sequential retargeting for clean SAGE tall scene.")
+    parser = argparse.ArgumentParser(description="Validate sequential retargeting for baseline STORM MPPI tall scene.")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--max-steps", type=int, default=2500)
     parser.add_argument("--segment-timeout-s", type=float, default=35.0)

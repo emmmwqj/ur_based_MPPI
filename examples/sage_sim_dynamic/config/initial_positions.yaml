@@ -1,0 +1,8 @@
+# UR7e Gazebo 初始关节位置
+# 与 ur7e_robot_gazebo.yml 中的 init_state 保持一致
+shoulder_pan_joint: 0.0
+shoulder_lift_joint: -1.57
+elbow_joint: 1.1
+wrist_1_joint: -1.57
+wrist_2_joint: -1.57
+wrist_3_joint: 0.0

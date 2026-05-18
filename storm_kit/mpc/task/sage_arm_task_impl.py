@@ -53,6 +53,7 @@ class SageArmTaskV3(BaseTaskSage):
     def _build_controller_params(self, exp_params, rollout_fn):
         mppi_params = dict(exp_params["mppi"])
         controller_core = dict(exp_params.get("sage_controller_core", {}))
+        mppi_params.pop("execution_mode", None)
 
         mppi_params.update(controller_core)
         dynamics_model = rollout_fn.dynamics_model
