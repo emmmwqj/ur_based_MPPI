@@ -79,7 +79,7 @@ def summarize(episode_rows: list[dict]) -> list[dict]:
     for method, rows in sorted(groups.items()):
         skipped_reasons = sorted({row.get("skipped_reason", "") for row in rows if row.get("skipped_reason", "")})
         all_rrt_unavailable = (
-            method == "rrtstar"
+            method in {"rrtstar", "rrtstar_ompl"}
             and rows
             and all(str(row.get("rrtstar_available", "")).strip().lower() == "false" for row in rows)
         )
@@ -103,8 +103,8 @@ def summarize(episode_rows: list[dict]) -> list[dict]:
                 "mean_trajectory_length_joint": _mean([_parse_float(r.get("trajectory_length_joint", "")) for r in rows]),
                 "mean_trajectory_length_ee": _mean([_parse_float(r.get("trajectory_length_ee", "")) for r in rows]),
                 "mean_smoothness_jerk": _mean([_parse_float(r.get("smoothness_jerk", "")) for r in rows]),
-                "rrtstar_exact_rate": _rate(rows, "rrtstar_exact_solution") if method == "rrtstar" else math.nan,
-                "rrtstar_approximate_rate": _rate(rows, "rrtstar_approximate_solution") if method == "rrtstar" else math.nan,
+                "rrtstar_exact_rate": _rate(rows, "rrtstar_exact_solution") if method in {"rrtstar", "rrtstar_ompl"} else math.nan,
+                "rrtstar_approximate_rate": _rate(rows, "rrtstar_approximate_solution") if method in {"rrtstar", "rrtstar_ompl"} else math.nan,
                 "skipped_reason": " | ".join(skipped_reasons),
             }
         )
@@ -119,7 +119,7 @@ def _csv_value(value):
 
 def _write_summary_csv(path: Path, rows: list[dict]) -> None:
     with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=SUMMARY_FIELDS)
+        writer = csv.DictWriter(f, fieldnames=SUMMARY_FIELDS, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: _csv_value(row.get(field, "")) for field in SUMMARY_FIELDS})

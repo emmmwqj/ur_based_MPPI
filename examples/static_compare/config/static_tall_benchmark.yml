@@ -1,9 +1,11 @@
 scene: tall
 description: >
-  Tuned-reference pilot infrastructure for the static tall-scene multi-target
-  reaching benchmark. STORM and SAGE controller episodes are launched through
-  the tuned run_all shell-script call chains and monitored by wrappers; source
-  task files and reference scripts are not modified.
+  Tuned-logic pilot infrastructure for the static tall-scene multi-target
+  reaching benchmark. STORM and SAGE controller episodes are run from
+  static_compare Python entry points that reproduce the tuned reference
+  Gazebo launch, target publication, reset, controller initialization, and
+  per-target control loops. Reference files are read-only and are not invoked
+  through shell-wrapper subprocesses.
 
 paths:
   storm_tall_launcher: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
@@ -18,7 +20,7 @@ paths:
   collision_spheres_file: examples/sim_gazebo/config/ur7e_collision_spheres.yml
 
 benchmark_overrides:
-  backend: tuned_reference_subprocess_wrapper
+  backend: python_internal_tuned_logic
   headless: true
   scene: tall
   use_dynamic_obstacles: false
@@ -31,8 +33,12 @@ benchmark_overrides:
   rrtstar_internal_validity_checker: static_collision_checker
   storm_method_name: storm_mppi_tuned
   sage_method_name: sage_mppi_tuned
-  storm_tuned_reference_script: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
-  sage_tuned_reference_script: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+  storm_tuned_reference_script_read_only: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+  sage_tuned_reference_script_read_only: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+  storm_python_runner: examples/static_compare/storm_tall_runner.py
+  sage_python_runner: examples/static_compare/sage_tall_runner.py
+  gazebo_launch_reimplemented_in_python: true
+  controller_initialized_in_static_compare: true
 
 metrics:
   success_definition: "final_ee_error < success_threshold and not collision and not timeout"

@@ -1,6 +1,6 @@
 Static tall benchmark integrity report
 status: pass
-passed: 15
+passed: 20
 warnings: 0
 failed: 0
 
@@ -10,8 +10,13 @@ failed: 0
 [pass] target_tuned_tall_pilot_00_validity: ok
 [pass] target_tuned_tall_pilot_01_validity: ok
 [pass] target_tuned_tall_pilot_02_validity: ok
-[pass] storm_uses_tuned_reference: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
-[pass] sage_uses_tuned_reference: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+[pass] python_internal_tuned_logic_backend: python_internal_tuned_logic
+[pass] does_not_shell_wrap_tuned_references: python_internal_tuned_logic
+[pass] storm_reference_read_only: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+[pass] sage_reference_read_only: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+[pass] storm_internal_runner_present: examples/static_compare/storm_tall_runner.py
+[pass] sage_internal_runner_present: examples/static_compare/sage_tall_runner.py
+[pass] gazebo_launch_reimplemented_in_python: True
 [pass] sage_clean_core_path: examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py
 [pass] sage_deployment_refinement_matches_tuned: enabled=True
 [pass] sage_local_refinement_matches_tuned: enabled=True

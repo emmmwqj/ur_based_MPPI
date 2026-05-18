@@ -35,15 +35,19 @@ EPISODE_FIELDS = [
     "rrtstar_exact_solution",
     "rrtstar_approximate_solution",
     "controller_class",
+    "controller_entrypoint",
+    "config_path",
+    "tuned_reference_script",
+    "target_publish_count",
+    "target_publish_duration",
     "uses_clean_controller",
     "uses_native_margin",
     "deployment_refinement_enabled",
     "local_refinement_enabled",
     "margin_fallback",
+    "target_not_available",
+    "backend",
     "skipped_reason",
-    "tuned_reference_script",
-    "controller_or_entrypoint",
-    "config_path",
     "path_length_joint",
     "planning_time_limit",
     "goal_bias",
@@ -67,6 +71,7 @@ STEP_FIELDS = [
     "safety_margin",
     "collision",
     "planning_time",
+    "control_time",
     "wall_time",
     "skipped_reason",
 ]
@@ -130,7 +135,7 @@ def write_csv(path: str | Path, rows: list[dict], fields: list[str]) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
+        writer = csv.DictWriter(f, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: csv_value(row.get(field, "")) for field in fields})

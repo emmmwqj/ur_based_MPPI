@@ -110,19 +110,50 @@ def _check_method_config(report: dict, config: dict) -> None:
     paths = config.get("paths", {})
     overrides = config.get("benchmark_overrides", {})
 
-    storm_ref = str(overrides.get("storm_tuned_reference_script", ""))
-    sage_ref = str(overrides.get("sage_tuned_reference_script", ""))
+    backend = str(overrides.get("backend", ""))
     _record(
         report,
-        "storm_uses_tuned_reference",
+        "python_internal_tuned_logic_backend",
+        "pass" if backend == "python_internal_tuned_logic" else "fail",
+        backend,
+    )
+    _record(
+        report,
+        "does_not_shell_wrap_tuned_references",
+        "pass" if "subprocess_wrapper" not in backend else "fail",
+        backend,
+    )
+    storm_ref = str(overrides.get("storm_tuned_reference_script_read_only", ""))
+    sage_ref = str(overrides.get("sage_tuned_reference_script_read_only", ""))
+    _record(
+        report,
+        "storm_reference_read_only",
         "pass" if storm_ref == "examples/sim_gazebo/bash/run_all_reach_static_tall.sh" else "fail",
         storm_ref,
     )
     _record(
         report,
-        "sage_uses_tuned_reference",
+        "sage_reference_read_only",
         "pass" if sage_ref == "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh" else "fail",
         sage_ref,
+    )
+    _record(
+        report,
+        "storm_internal_runner_present",
+        "pass" if resolve_repo_path(overrides.get("storm_python_runner", "")).exists() else "fail",
+        str(overrides.get("storm_python_runner", "")),
+    )
+    _record(
+        report,
+        "sage_internal_runner_present",
+        "pass" if resolve_repo_path(overrides.get("sage_python_runner", "")).exists() else "fail",
+        str(overrides.get("sage_python_runner", "")),
+    )
+    _record(
+        report,
+        "gazebo_launch_reimplemented_in_python",
+        "pass" if bool(overrides.get("gazebo_launch_reimplemented_in_python")) else "fail",
+        str(overrides.get("gazebo_launch_reimplemented_in_python")),
     )
 
     sage_entry = str(paths.get("sage_clean_controller_entry", ""))

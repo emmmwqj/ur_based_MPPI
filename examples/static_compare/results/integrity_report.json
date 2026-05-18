@@ -31,13 +31,38 @@
       "status": "pass"
     },
     {
+      "detail": "python_internal_tuned_logic",
+      "name": "python_internal_tuned_logic_backend",
+      "status": "pass"
+    },
+    {
+      "detail": "python_internal_tuned_logic",
+      "name": "does_not_shell_wrap_tuned_references",
+      "status": "pass"
+    },
+    {
       "detail": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh",
-      "name": "storm_uses_tuned_reference",
+      "name": "storm_reference_read_only",
       "status": "pass"
     },
     {
       "detail": "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh",
-      "name": "sage_uses_tuned_reference",
+      "name": "sage_reference_read_only",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/static_compare/storm_tall_runner.py",
+      "name": "storm_internal_runner_present",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/static_compare/sage_tall_runner.py",
+      "name": "sage_internal_runner_present",
+      "status": "pass"
+    },
+    {
+      "detail": "True",
+      "name": "gazebo_launch_reimplemented_in_python",
       "status": "pass"
     },
     {
@@ -82,7 +107,7 @@
     "Does not include robot self-collision in this pilot checker."
   ],
   "failed": 0,
-  "passed": 15,
+  "passed": 20,
   "status": "pass",
   "warnings": 0
 }
