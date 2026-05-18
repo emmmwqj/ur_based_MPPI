@@ -1,0 +1,58 @@
+scene: tall
+description: >
+  Pilot infrastructure for the static tall-scene multi-target reaching
+  benchmark. This configuration records source paths and benchmark overrides;
+  source task files are not modified.
+
+paths:
+  storm_tall_launcher: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+  storm_controller_entry: examples/sim_gazebo/reach_static_ur7e_tall.py
+  storm_task_file: examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml
+  sage_clean_launcher: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+  sage_clean_controller_entry: examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py
+  sage_clean_task_file: examples/SAGE_MPPI/clean_SAGE/config/ur7e_reacher_gazebo_tall_sage_clean.yml
+  robot_file: examples/sim_gazebo/config/ur7e_robot_gazebo.yml
+  gazebo_joint_limit_file: examples/sim_gazebo/config/ur7e_gazebo.yml
+  world_file: examples/sim_gazebo/config/collision_world_gazebo_tall.yml
+  collision_spheres_file: examples/sim_gazebo/config/ur7e_collision_spheres.yml
+
+benchmark_overrides:
+  backend: offline_controller_pilot
+  headless: true
+  scene: tall
+  use_dynamic_obstacles: false
+  use_sequential_retargeting: false
+  sage_deployment_refinement_enabled: false
+  sage_local_refinement_enabled: false
+  sage_uses_clean_controller: true
+  rrtstar_internal_validity_checker: static_collision_checker
+
+metrics:
+  success_definition: "final_ee_error < success_threshold and not collision and not timeout"
+  final_ee_error: "Euclidean distance between p_ee(q_final) and goal_ee_position."
+  final_joint_error: "Euclidean distance between q_final and goal_joint_positions."
+  minimum_safety_margin: >
+    Minimum signed geometric margin over discrete executed or planned states.
+    RRT* uses static_collision_checker, never Gazebo, for internal validity.
+  trajectory_length_joint: "sum ||q[t+1] - q[t]||_2."
+  trajectory_length_ee: "sum ||p_ee(q[t+1]) - p_ee(q[t])||_2."
+  smoothness_jerk: "Mean norm of the third finite difference of joint positions when available."
+  planning_time: >
+    RRT*: OMPL solve wall time. STORM/SAGE: cumulative direct controller
+    optimize wall time in the offline controller pilot.
+
+collision_checker:
+  include_ground: true
+  collision_threshold: 0.0
+  motion_resolution: 0.05
+  approximation_note: >
+    Analytic sphere-vs-sphere and sphere-vs-oriented-box distances are used
+    for UR7e link collision spheres against the tall primitive world. This is
+    a geometry-only approximation for pilot planning validity and logging; it
+    does not use Gazebo contact queries or self-collision.
+
+rrtstar:
+  planning_time_limit: 2.0
+  goal_bias: 0.05
+  interpolation_resolution: 0.05
+  collision_check_resolution: 0.05

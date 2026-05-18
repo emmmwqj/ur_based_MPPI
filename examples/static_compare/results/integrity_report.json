@@ -1,0 +1,93 @@
+{
+  "checks": [
+    {
+      "detail": "No sim_dynamic or sage_sim_dynamic paths referenced.",
+      "name": "no_dynamic_scene_paths",
+      "status": "pass"
+    },
+    {
+      "detail": "tall",
+      "name": "scene_is_tall",
+      "status": "pass"
+    },
+    {
+      "detail": "count=5",
+      "name": "target_count_pilot_size",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_tall_pilot_00_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_tall_pilot_01_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_tall_pilot_02_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_tall_pilot_03_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_tall_pilot_04_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh examples/sim_gazebo/reach_static_ur7e_tall.py examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml",
+      "name": "storm_no_sage_logic",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py",
+      "name": "sage_clean_core_path",
+      "status": "pass"
+    },
+    {
+      "detail": "enabled=False",
+      "name": "sage_deployment_refinement_disabled",
+      "status": "pass"
+    },
+    {
+      "detail": "enabled=False",
+      "name": "sage_local_refinement_disabled",
+      "status": "pass"
+    },
+    {
+      "detail": "SAGE core uses primitive collision cost; logged margin source is documented in metadata.",
+      "name": "sage_uses_native_margin_declared",
+      "status": "pass"
+    },
+    {
+      "detail": "static_collision_checker",
+      "name": "rrtstar_uses_static_collision_checker",
+      "status": "pass"
+    },
+    {
+      "detail": "OMPL Python binding imported.",
+      "name": "rrtstar_ompl_import",
+      "status": "pass"
+    },
+    {
+      "detail": "Episode CSV fields match unified schema.",
+      "name": "result_schema_consistency",
+      "status": "pass"
+    }
+  ],
+  "collision_checker_warnings": [
+    "Uses analytic link-sphere vs primitive-obstacle distances.",
+    "Does not query Gazebo contacts or Gazebo physics.",
+    "Does not include robot self-collision in this pilot checker."
+  ],
+  "failed": 0,
+  "passed": 16,
+  "status": "pass",
+  "warnings": 0
+}

@@ -1,0 +1,208 @@
+{
+  "scene": "tall",
+  "schema_version": 1,
+  "seed": 0,
+  "target_count": 5,
+  "targets": [
+    {
+      "difficulty_tag": "pilot_tall_near_wall",
+      "generation": {
+        "attempt_index": 192,
+        "goal_margin": 0.0878999940395355,
+        "initial_ee_position": [
+          0.18932071,
+          0.29422283,
+          0.30150464
+        ],
+        "initial_margin": 0.020587134877414044,
+        "joint_distance": 3.4657596267434685,
+        "seed": 0,
+        "straight_line_min_margin": -0.0006807299684614965
+      },
+      "goal_ee_position": [
+        0.33326614,
+        0.00483093,
+        0.737234
+      ],
+      "goal_joint_positions": [
+        -0.16710433,
+        -1.76048919,
+        1.12169586,
+        -0.84038372,
+        -2.39496897,
+        -2.84700691
+      ],
+      "initial_joint_positions": [
+        0.61389214,
+        -1.90615188,
+        2.42104651,
+        -2.35730442,
+        -1.5894479,
+        -0.25045305
+      ],
+      "notes": "Generated from joint-space initial/goal samples; endpoints pass static_collision_checker. Goal EE is FK(goal_joint_positions). Straight-line joint motion margin is logged for difficulty only; the task is not sequential retargeting.",
+      "scene": "tall",
+      "target_id": "tall_pilot_00"
+    },
+    {
+      "difficulty_tag": "pilot_tall_near_wall",
+      "generation": {
+        "attempt_index": 222,
+        "goal_margin": 0.0878999940395355,
+        "initial_ee_position": [
+          0.27325174,
+          0.33340117,
+          0.74050194
+        ],
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.6946096124624086,
+        "seed": 0,
+        "straight_line_min_margin": 0.0878999940395355
+      },
+      "goal_ee_position": [
+        0.18052173,
+        -0.04699442,
+        0.80090839
+      ],
+      "goal_joint_positions": [
+        -0.53224665,
+        -1.94026501,
+        1.029728,
+        -0.54147435,
+        -2.54125142,
+        0.52028251
+      ],
+      "initial_joint_positions": [
+        0.40355468,
+        -1.7949833,
+        1.34104493,
+        -1.69202185,
+        -0.84622868,
+        -0.91857474
+      ],
+      "notes": "Generated from joint-space initial/goal samples; endpoints pass static_collision_checker. Goal EE is FK(goal_joint_positions). Straight-line joint motion margin is logged for difficulty only; the task is not sequential retargeting.",
+      "scene": "tall",
+      "target_id": "tall_pilot_01"
+    },
+    {
+      "difficulty_tag": "pilot_tall_near_wall",
+      "generation": {
+        "attempt_index": 232,
+        "goal_margin": 0.059490971778312994,
+        "initial_ee_position": [
+          0.20460059,
+          0.2406801,
+          0.83532554
+        ],
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 4.134658030667065,
+        "seed": 0,
+        "straight_line_min_margin": 0.02548058793513487
+      },
+      "goal_ee_position": [
+        0.58742493,
+        0.20389928,
+        0.78848231
+      ],
+      "goal_joint_positions": [
+        -2.69660556,
+        -1.94339368,
+        -0.7207299,
+        -2.28926593,
+        -2.27505379,
+        -1.35733628
+      ],
+      "initial_joint_positions": [
+        0.14758041,
+        -1.85376571,
+        0.95610016,
+        -0.89880723,
+        -0.72306471,
+        -2.71533683
+      ],
+      "notes": "Generated from joint-space initial/goal samples; endpoints pass static_collision_checker. Goal EE is FK(goal_joint_positions). Straight-line joint motion margin is logged for difficulty only; the task is not sequential retargeting.",
+      "scene": "tall",
+      "target_id": "tall_pilot_02"
+    },
+    {
+      "difficulty_tag": "pilot_tall_near_wall",
+      "generation": {
+        "attempt_index": 453,
+        "goal_margin": 0.0878999940395355,
+        "initial_ee_position": [
+          0.34453794,
+          0.10502422,
+          0.40710706
+        ],
+        "initial_margin": 0.005643213975429544,
+        "joint_distance": 5.620877790623084,
+        "seed": 0,
+        "straight_line_min_margin": -0.0003857534497976253
+      },
+      "goal_ee_position": [
+        0.19964418,
+        0.13733508,
+        0.7414996
+      ],
+      "goal_joint_positions": [
+        0.41569158,
+        -2.03631814,
+        1.42816615,
+        -1.16758443,
+        -2.66022415,
+        2.95794678
+      ],
+      "initial_joint_positions": [
+        -0.30841011,
+        -2.05964361,
+        2.28547057,
+        -2.04547446,
+        -0.77219814,
+        -2.14098407
+      ],
+      "notes": "Generated from joint-space initial/goal samples; endpoints pass static_collision_checker. Goal EE is FK(goal_joint_positions). Straight-line joint motion margin is logged for difficulty only; the task is not sequential retargeting.",
+      "scene": "tall",
+      "target_id": "tall_pilot_03"
+    },
+    {
+      "difficulty_tag": "pilot_tall_near_wall",
+      "generation": {
+        "attempt_index": 532,
+        "goal_margin": 0.0878999940395355,
+        "initial_ee_position": [
+          0.54169428,
+          0.23109198,
+          0.62485373
+        ],
+        "initial_margin": 0.045352958002347246,
+        "joint_distance": 3.2555345247055922,
+        "seed": 0,
+        "straight_line_min_margin": 0.045352958002347246
+      },
+      "goal_ee_position": [
+        0.1779291,
+        0.22070061,
+        0.78112817
+      ],
+      "goal_joint_positions": [
+        -2.0679116,
+        -1.16175422,
+        -1.44171083,
+        -2.37889459,
+        -2.54077558,
+        0.70441517
+      ],
+      "initial_joint_positions": [
+        -2.35027037,
+        -1.76668427,
+        -1.08639937,
+        -2.92434913,
+        -0.45281084,
+        -1.6127975
+      ],
+      "notes": "Generated from joint-space initial/goal samples; endpoints pass static_collision_checker. Goal EE is FK(goal_joint_positions). Straight-line joint motion margin is logged for difficulty only; the task is not sequential retargeting.",
+      "scene": "tall",
+      "target_id": "tall_pilot_04"
+    }
+  ]
+}
