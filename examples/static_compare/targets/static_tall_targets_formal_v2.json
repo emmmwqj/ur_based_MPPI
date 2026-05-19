@@ -1,0 +1,3163 @@
+{
+  "difficulty_counts": {
+    "around_tall_obstacle": 20,
+    "easy": 10,
+    "hard_reach": 15,
+    "near_obstacle": 15
+  },
+  "initial_positions_source": "examples/sim_gazebo/config/initial_positions.yaml",
+  "profile": "formal_v2",
+  "scene": "tall",
+  "schema_version": 3,
+  "seed": 23,
+  "target_count": 60,
+  "targets": [
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 14,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04537529464364056,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.910092767749604,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04537529464364056,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.28897539,
+        -0.24331807,
+        0.57881647
+      ],
+      "goal_joint_positions": [
+        -1.03985857,
+        -1.55938361,
+        1.21918023,
+        -0.31200851,
+        -1.64424981,
+        0.98223025
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_000"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 69,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04467658097635131,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.0095947951407584,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04467658097635131,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.20996664,
+        -0.12894431,
+        0.54823393
+      ],
+      "goal_joint_positions": [
+        -1.35126927,
+        -2.2794606,
+        1.85470516,
+        -1.05175033,
+        -1.11828619,
+        -2.38457332
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_001"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 76,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.2675317276049376,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.21209154,
+        0.16354233,
+        0.80972093
+      ],
+      "goal_joint_positions": [
+        -0.21299134,
+        -2.13477862,
+        1.35557827,
+        -1.50264295,
+        -0.77179111,
+        -0.73164323
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_002"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 85,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.8235922378379636,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.050290795981858816,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.20907678,
+        -0.53522533,
+        0.80609643
+      ],
+      "goal_joint_positions": [
+        -1.45942419,
+        -1.36698696,
+        0.79524134,
+        -1.88670919,
+        -1.41966624,
+        2.36342063
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_003"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 88,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.520109449825029,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04753104487655854,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.29781333,
+        0.12138744,
+        0.82669801
+      ],
+      "goal_joint_positions": [
+        -2.20382709,
+        -1.15015275,
+        -1.37867078,
+        -2.55519622,
+        -1.21175937,
+        0.33954116
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_004"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 113,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.013939152453402472,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.067215405637349,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.013939152453402472,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.40771025,
+        -0.21740176,
+        0.52951378
+      ],
+      "goal_joint_positions": [
+        -0.90317692,
+        -1.78534433,
+        1.78391173,
+        -1.89190155,
+        -1.01824062,
+        -1.59232017
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_005"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 118,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07780226341128808,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 4.187213928028104,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.07780226341128808,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.44270873,
+        -0.40912428,
+        0.69871891
+      ],
+      "goal_joint_positions": [
+        2.48256913,
+        -1.82955518,
+        -1.07064638,
+        -2.0618214,
+        -2.51949493,
+        -2.33390391
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_006"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 121,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.0211850423803543,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.25439212,
+        0.12818909,
+        0.78073221
+      ],
+      "goal_joint_positions": [
+        -0.1000984,
+        -1.6995454,
+        0.74884679,
+        -0.32474654,
+        -1.37200882,
+        -2.71801252
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_007"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 136,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04834659087822288,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.9926170977060849,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.047710893681274485,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.18886194,
+        -0.37638265,
+        0.81018645
+      ],
+      "goal_joint_positions": [
+        -1.46949621,
+        -1.7595725,
+        1.21890109,
+        -2.01213935,
+        -1.40404849,
+        1.24016187
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_008"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 154,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04332640460729603,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.4036034044206644,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04332640460729603,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.2415359,
+        -0.07451023,
+        0.71882707
+      ],
+      "goal_joint_positions": [
+        -1.39564996,
+        -2.1996863,
+        1.41995514,
+        -0.53581038,
+        -0.40463202,
+        0.95024403
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_009"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 163,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.06233767970097523,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.9654337577567405,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.06233767970097523,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.53959721,
+        -0.18155998,
+        0.70775717
+      ],
+      "goal_joint_positions": [
+        -0.48780608,
+        -1.45324259,
+        1.18975742,
+        -2.2030343,
+        -1.99263619,
+        -1.73894583
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_010"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 165,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.897016823986767,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.34574327,
+        0.18010697,
+        0.62578189
+      ],
+      "goal_joint_positions": [
+        0.27029994,
+        -1.58673894,
+        1.15185791,
+        -0.52031228,
+        -2.12071974,
+        -1.45516487
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_011"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 168,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.8964461246078286,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.49796867,
+        0.08824593,
+        0.76254171
+      ],
+      "goal_joint_positions": [
+        -0.08307694,
+        -1.43447433,
+        0.76089991,
+        -1.19679389,
+        -1.61133303,
+        2.84748153
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_012"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 170,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.028834778454806927,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.241506444194814,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.013936093836271958,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.18357152,
+        0.3123402,
+        0.4970198
+      ],
+      "goal_joint_positions": [
+        0.41785818,
+        -2.07927358,
+        2.24245678,
+        -2.52454853,
+        -0.67638045,
+        -1.25517322
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_013"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 176,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.2799431026247245,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.54044676,
+        -0.06047222,
+        0.58004528
+      ],
+      "goal_joint_positions": [
+        -0.42136243,
+        -1.52785137,
+        1.34947418,
+        -1.5558422,
+        -1.23774587,
+        -1.1340639
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_014"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 177,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.017549631840753643,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.9135738161924927,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": -0.0029442631869381133,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.20735186,
+        -0.15252157,
+        0.33335143
+      ],
+      "goal_joint_positions": [
+        -0.84350916,
+        -1.77229593,
+        2.12056037,
+        -0.60949528,
+        -2.500362,
+        -2.21512862
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_015"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 183,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.049859516683468,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.055585083435332305,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.30993962,
+        0.41482678,
+        0.80334747
+      ],
+      "goal_joint_positions": [
+        -1.97752937,
+        -1.63827557,
+        -1.19260586,
+        -1.90013904,
+        -1.69922004,
+        0.06802831
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_016"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 197,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.012182828718423883,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.7536589714873956,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.011968242162466086,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.36393303,
+        0.50439161,
+        0.84047836
+      ],
+      "goal_joint_positions": [
+        0.81108054,
+        -0.89136862,
+        -0.08592673,
+        -1.47619878,
+        -2.09417241,
+        2.18500983
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_017"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 268,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07314740303796818,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.376861472539087,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.07314740303796818,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.4749147,
+        -0.04098127,
+        0.58217096
+      ],
+      "goal_joint_positions": [
+        -0.31299164,
+        -1.71412816,
+        1.80135152,
+        -2.66722751,
+        -1.83553546,
+        0.10343871
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_018"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 273,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.901704337574016,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.18525925,
+        0.43515846,
+        0.70823437
+      ],
+      "goal_joint_positions": [
+        0.98825621,
+        -1.59729626,
+        1.14995168,
+        -1.46295842,
+        -2.08057366,
+        -2.67728484
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_019"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 288,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 4.1098124847409565,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05125927900094554,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.2800805,
+        0.31157917,
+        0.78410715
+      ],
+      "goal_joint_positions": [
+        -1.91307012,
+        -1.3413593,
+        -1.32345529,
+        -2.61313679,
+        -1.30712001,
+        2.47953
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_020"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 305,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07084122658759166,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.186187246497519,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.07084122658759166,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.37008986,
+        -0.47868156,
+        0.82174718
+      ],
+      "goal_joint_positions": [
+        2.43782325,
+        -1.94561003,
+        -0.82510753,
+        -1.68136488,
+        -1.64952052,
+        -0.58562736
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_021"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 323,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.1596573017667255,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05286503829192185,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.19559585,
+        0.40135747,
+        0.7900669
+      ],
+      "goal_joint_positions": [
+        -1.63317976,
+        -1.42903483,
+        -1.17529252,
+        -2.81118335,
+        -1.19133839,
+        0.65985617
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_022"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 331,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.017473226187482385,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.7459743795137324,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.017473226187482385,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.64801425,
+        -0.01945546,
+        0.75532424
+      ],
+      "goal_joint_positions": [
+        -0.16046136,
+        -1.19147976,
+        0.81407161,
+        -2.32618283,
+        -2.0847994,
+        2.54022911
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_023"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 334,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.9690172933353405,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.34938425,
+        0.38491529,
+        0.81954849
+      ],
+      "goal_joint_positions": [
+        0.66674663,
+        -1.46988492,
+        1.02188121,
+        -2.3504396,
+        -2.06097091,
+        -1.60194071
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_024"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 390,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07806624122596886,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.1461198793773915,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.07806624122596886,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.25171036,
+        0.11224214,
+        0.61852062
+      ],
+      "goal_joint_positions": [
+        0.01269926,
+        -2.23728074,
+        2.04041881,
+        -2.47563238,
+        -1.81688088,
+        2.7725688
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_025"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 394,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.036666373222076415,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.7502603887288997,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.036666373222076415,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.18844123,
+        -0.54549724,
+        0.69428068
+      ],
+      "goal_joint_positions": [
+        -1.48761841,
+        -1.07037556,
+        0.2880971,
+        -0.58130772,
+        -1.47861114,
+        -1.85909882
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_026"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 395,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07959661070687962,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.217481310348389,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.07959661070687962,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.28873804,
+        0.34631443,
+        0.83245629
+      ],
+      "goal_joint_positions": [
+        0.73884992,
+        -1.15827691,
+        0.05523274,
+        -0.46404488,
+        -2.37495422,
+        1.11318534
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_027"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 415,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.6669939527601842,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.27849472,
+        -0.3036544,
+        0.79925048
+      ],
+      "goal_joint_positions": [
+        2.46207915,
+        -1.56118018,
+        -1.33652094,
+        -1.10578969,
+        -2.38028649,
+        0.759107
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_028"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 423,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07274944034984482,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.940064085258565,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.055380186864926295,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.2124124,
+        -0.25180829,
+        0.8123951
+      ],
+      "goal_joint_positions": [
+        -1.33300997,
+        -1.5487419,
+        0.51550513,
+        -0.39399352,
+        -1.43157674,
+        0.49264053
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_029"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 438,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04235580956598753,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.9292886369436957,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04110639152697418,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.20330052,
+        0.54421455,
+        0.29513818
+      ],
+      "goal_joint_positions": [
+        -1.6296451,
+        -1.82843592,
+        -1.82606873,
+        -2.48885628,
+        -1.18324881,
+        -1.77792726
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_030"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 445,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.05553546075435033,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.647373003636924,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05553546075435033,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.22513857,
+        -0.11598115,
+        0.73620731
+      ],
+      "goal_joint_positions": [
+        -1.18582023,
+        -1.93550532,
+        1.10642736,
+        -0.53917258,
+        -1.2457786,
+        -0.07942327
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_031"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 470,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.03836300155519655,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.2456022737930847,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.03836300155519655,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.41821045,
+        0.37747881,
+        0.50289005
+      ],
+      "goal_joint_positions": [
+        0.51844396,
+        -1.22712695,
+        1.0250395,
+        -0.74252284,
+        -1.69825701,
+        0.67704621
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_032"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 483,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.07368752712703296,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.400985436499644,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.07368752712703296,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.28916055,
+        -0.21226218,
+        0.6512537
+      ],
+      "goal_joint_positions": [
+        -0.90876498,
+        -1.85162548,
+        1.41797937,
+        -1.22015521,
+        -1.93747119,
+        2.1215624
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_033"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 490,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.515369281141889,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.29976815,
+        0.08781211,
+        0.85869306
+      ],
+      "goal_joint_positions": [
+        0.05278239,
+        -1.74904411,
+        0.88341633,
+        -1.20734525,
+        -2.23536643,
+        2.38140723
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_034"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 509,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.058499177978020345,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.2405527519126216,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.024875591508083453,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.3634119,
+        -0.30433464,
+        0.81513536
+      ],
+      "goal_joint_positions": [
+        -0.92395918,
+        -1.00940997,
+        -0.24369645,
+        -0.47004454,
+        -1.842308,
+        0.87323597
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_035"
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "generation": {
+        "attempt_index": 554,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0848858964054446,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.343423781870086,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05551863054052955,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.47391248,
+        0.31591895,
+        0.72693783
+      ],
+      "goal_joint_positions": [
+        -2.26639671,
+        -1.65346777,
+        -1.23141355,
+        -2.28798414,
+        -1.28528239,
+        -0.05391814
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=near_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_036"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 572,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.031042771111016443,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.4852196867513041,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.031042771111016443,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.63434964,
+        -0.06069806,
+        0.39048237
+      ],
+      "goal_joint_positions": [
+        -0.30209357,
+        -1.26810333,
+        1.52732643,
+        -2.035225,
+        -1.59608035,
+        1.27426568
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_037"
+    },
+    {
+      "difficulty_tag": "easy",
+      "generation": {
+        "attempt_index": 573,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0878999940395355,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.0828105632685534,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0878999940395355,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.50443614,
+        0.15925609,
+        0.71671557
+      ],
+      "goal_joint_positions": [
+        -0.01969977,
+        -1.59304657,
+        1.29766422,
+        -2.13701312,
+        -1.20246661,
+        -0.82213361
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=easy.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_038"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 588,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.02209301267439405,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.388638322877933,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.02209301267439405,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.24911648,
+        -0.6077441,
+        0.78290677
+      ],
+      "goal_joint_positions": [
+        -1.26616256,
+        -1.02846409,
+        0.42313332,
+        -1.80869267,
+        -2.46956146,
+        -1.57633459
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_039"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 599,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.05060902980118989,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.9604838298546208,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05060902980118989,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.28931701,
+        -0.0062418,
+        0.32483363
+      ],
+      "goal_joint_positions": [
+        -0.42594589,
+        -1.60893155,
+        1.9972695,
+        -0.54661726,
+        -1.76727353,
+        -1.33012392
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_040"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 618,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.05233311387227327,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.5272335390119576,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": -0.00660422490239141,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.27151299,
+        -0.61951584,
+        0.326262
+      ],
+      "goal_joint_positions": [
+        -1.30652879,
+        -1.11390707,
+        1.57203301,
+        -2.45629624,
+        -1.90884341,
+        1.82995085
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_041"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 639,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.051967960481638646,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.8346002014177973,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05152261155759957,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.22301736,
+        0.06572737,
+        0.44435742
+      ],
+      "goal_joint_positions": [
+        -0.44140437,
+        -2.25573122,
+        2.0523649,
+        -1.00163,
+        -1.35422061,
+        1.19335187
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_042"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 682,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.020964221721815363,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.847912127684391,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.020964221721815363,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.46742174,
+        0.4813697,
+        0.52350664
+      ],
+      "goal_joint_positions": [
+        -2.015639,
+        -1.96551963,
+        -1.43182394,
+        -1.20463427,
+        -0.61256219,
+        1.76829852
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_043"
+    },
+    {
+      "difficulty_tag": "hard_reach",
+      "generation": {
+        "attempt_index": 770,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.03393645301533009,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.2889914649965086,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.03393645301533009,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.4830271,
+        -0.06774168,
+        0.28000835
+      ],
+      "goal_joint_positions": [
+        -0.32228685,
+        -1.28529889,
+        1.69601821,
+        -1.14241569,
+        -2.03465924,
+        -2.07378498
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=hard_reach.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_044"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 939,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.033314388999342914,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.4740269456139639,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.033314388999342914,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.52073139,
+        -0.09008318,
+        0.37539998
+      ],
+      "goal_joint_positions": [
+        -0.35617462,
+        -1.38951665,
+        1.60164604,
+        -1.41321966,
+        -1.94228193,
+        1.26431728
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_045"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1102,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.036919577393326936,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.752018308441186,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.036919577393326936,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.595447,
+        -0.17963067,
+        0.67062402
+      ],
+      "goal_joint_positions": [
+        -0.44214251,
+        -1.32806486,
+        1.22691472,
+        -2.63651389,
+        -1.99372249,
+        2.44672887
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_046"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1137,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.02927458171078405,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.209570347861822,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.02927458171078405,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.4240678,
+        0.53659558,
+        0.59810537
+      ],
+      "goal_joint_positions": [
+        0.63830828,
+        -1.23835306,
+        1.11064147,
+        -2.05045382,
+        -1.10237872,
+        -0.70428296
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_047"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1215,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.053070212471558936,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.7858017910738573,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05299511384453284,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.35571828,
+        -0.24988347,
+        0.83005261
+      ],
+      "goal_joint_positions": [
+        -0.87872748,
+        -1.49715805,
+        0.64524952,
+        -1.11740953,
+        -1.76152168,
+        -2.55634641
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_048"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1301,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.0420854448347349,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.8168551891863822,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.0407541606910883,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.59588349,
+        0.09406076,
+        0.50492698
+      ],
+      "goal_joint_positions": [
+        -0.17476166,
+        -1.30266861,
+        1.20294069,
+        -1.12502813,
+        -0.88680707,
+        1.58858608
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_049"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1436,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.029406238138667815,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.5430402179608418,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.029406238138667815,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.45873928,
+        0.40999025,
+        0.59397274
+      ],
+      "goal_joint_positions": [
+        0.6402812,
+        -1.32351631,
+        1.27947288,
+        -2.09552847,
+        -2.47987091,
+        0.87977447
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_050"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1440,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04344466509227228,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.8091703927247733,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04344466509227228,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.51884347,
+        -0.12210792,
+        0.73079181
+      ],
+      "goal_joint_positions": [
+        -0.6282814,
+        -1.39275672,
+        0.78288119,
+        -0.89180626,
+        -0.75019723,
+        -1.27057355
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_051"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1594,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04305491124246913,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.0726199104484704,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04305491124246913,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.22875419,
+        -0.14361319,
+        0.66975927
+      ],
+      "goal_joint_positions": [
+        -1.36877112,
+        -2.32917124,
+        1.95453083,
+        -2.31118129,
+        -0.89906511,
+        -0.3408103
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_052"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1632,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.05490621134705556,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 2.5158604342238853,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.05490621134705556,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.42261022,
+        -0.04635363,
+        0.77554059
+      ],
+      "goal_joint_positions": [
+        -0.61630274,
+        -1.46249588,
+        0.6212253,
+        -0.31769251,
+        -0.74592301,
+        -1.86052825
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_053"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 1647,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.05753698022299701,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 3.1269530927101123,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.023368784191078157,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.22155318,
+        -0.02587478,
+        0.29106361
+      ],
+      "goal_joint_positions": [
+        -1.15080503,
+        -1.96692806,
+        2.39416276,
+        -0.44370019,
+        -0.94366147,
+        -2.22715583
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_054"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 2243,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.062357791144089667,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.6328479020485582,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.024302524616457655,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.26398379,
+        -0.04730666,
+        0.18344033
+      ],
+      "goal_joint_positions": [
+        -0.75039776,
+        -1.70410428,
+        2.43003659,
+        -1.42518554,
+        -1.44883363,
+        0.52958632
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_055"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 2329,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.03518146139858704,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.5302603476599925,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.032336796891701984,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.33881316,
+        -0.01763128,
+        0.37901732
+      ],
+      "goal_joint_positions": [
+        -0.32811899,
+        -1.96154712,
+        2.2075055,
+        -1.91211456,
+        -1.99289564,
+        -0.74717734
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_056"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 2652,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.02748019141238213,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.2037540609312887,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.02748019141238213,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.64806771,
+        -0.19498368,
+        0.6306082
+      ],
+      "goal_joint_positions": [
+        -0.56251459,
+        -1.2569559,
+        1.12921756,
+        -2.26893748,
+        -1.07498576,
+        0.54790346
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_057"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 2674,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.04568226864933177,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.3175304560414394,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.04568226864933177,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.29626846,
+        0.46185067,
+        0.55310357
+      ],
+      "goal_joint_positions": [
+        0.61092884,
+        -1.55054369,
+        1.50475054,
+        -1.65246414,
+        -0.71723804,
+        0.68150394
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_058"
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "generation": {
+        "attempt_index": 2873,
+        "formal_min_goal_margin": 0.012,
+        "goal_margin": 0.05693373371774152,
+        "initial_margin": 0.0878999940395355,
+        "joint_distance": 1.715060975512187,
+        "min_ee_separation": 0.045,
+        "profile": "formal_v2",
+        "seed": 23,
+        "straight_line_min_margin": 0.02665101624775376,
+        "workspace_bounds": {
+          "x": [
+            0.18,
+            0.82
+          ],
+          "y": [
+            -0.62,
+            0.62
+          ],
+          "z": [
+            0.18,
+            0.86
+          ]
+        }
+      },
+      "goal_ee_position": [
+        0.25757104,
+        0.0059715,
+        0.23329546
+      ],
+      "goal_joint_positions": [
+        -0.74389994,
+        -1.75454582,
+        2.37019802,
+        -0.9001403,
+        -1.09624088,
+        -0.25966736
+      ],
+      "initial_joint_positions": [
+        0.0,
+        -1.57,
+        1.1,
+        -1.57,
+        -1.57,
+        0.0
+      ],
+      "notes": "Common target for tuned STORM/SAGE references. The reference scripts accept Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. Profile=formal_v2; difficulty_tag=around_tall_obstacle.",
+      "scene": "tall",
+      "target_id": "static_tall_formal_v2_059"
+    }
+  ],
+  "tuned_reference_default_goals": {
+    "note": "Defaults differ; static_compare injects this shared target list through /target_pose.",
+    "sage_mppi_tuned": [
+      0.4,
+      -0.5,
+      0.4
+    ],
+    "storm_mppi_tuned": [
+      0.5,
+      -0.45,
+      0.4
+    ]
+  },
+  "workspace_bounds": {
+    "x": [
+      0.18,
+      0.82
+    ],
+    "y": [
+      -0.62,
+      0.62
+    ],
+    "z": [
+      0.18,
+      0.86
+    ]
+  }
+}

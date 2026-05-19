@@ -39,6 +39,7 @@ def _base_rrtstar_row(episode_id: int, target_id: str) -> dict:
             "method_name": "rrtstar_ompl",
             "episode_id": episode_id,
             "target_id": target_id,
+            "difficulty_tag": "",
             "scene": "tall",
             "success": False,
             "failure": True,
@@ -151,6 +152,7 @@ def _run_rrtstar_episode(
                 "method_name": "rrtstar_ompl",
                 "episode_id": episode_id,
                 "target_id": target["target_id"],
+                "difficulty_tag": target.get("difficulty_tag", ""),
                 "scene": "tall",
                 "step": step,
                 "q": q.tolist(),
@@ -189,6 +191,7 @@ def _exception_row(method_name: str, episode_id: int, target_id: str, exc: Excep
             "method_name": method_name,
             "episode_id": episode_id,
             "target_id": target_id,
+            "difficulty_tag": "",
             "scene": "tall",
             "success": False,
             "failure": True,
@@ -340,6 +343,9 @@ def main() -> int:
                 metadata.setdefault("exceptions", []).append(
                     {"method": method, "target_id": target.get("target_id"), "traceback": traceback.format_exc()}
                 )
+            row["difficulty_tag"] = target.get("difficulty_tag", "")
+            for step in steps:
+                step["difficulty_tag"] = target.get("difficulty_tag", "")
             episode_rows.append(row)
             step_rows.extend(steps)
             write_csv(output_root / "static_tall_episode_log.csv", episode_rows, EPISODE_FIELDS)

@@ -54,7 +54,10 @@ def _check_target_set(report: dict, targets_payload: dict, checker: StaticTallCo
     targets = targets_payload.get("targets", [])
     _record(report, "scene_is_tall", "pass" if targets_payload.get("scene") == "tall" else "fail", str(targets_payload.get("scene")))
     profile = str(targets_payload.get("profile", "pilot"))
-    if profile == "formal":
+    if profile == "formal_v2":
+        ok_count = len(targets) == 60
+        check_name = "target_count_formal_v2_size"
+    elif profile == "formal":
         ok_count = len(targets) in {20, 30}
         check_name = "target_count_formal_size"
     else:

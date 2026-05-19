@@ -46,7 +46,14 @@ FORMAL_DIFFICULTY_TAGS = [
     "around_tall_obstacle",
     "far_reach",
 ]
+FORMAL_V2_DIFFICULTY_TAGS = [
+    "easy",
+    "near_obstacle",
+    "around_tall_obstacle",
+    "hard_reach",
+]
 FORMAL_MIN_GOAL_MARGIN = 0.015
+FORMAL_V2_MIN_GOAL_MARGIN = 0.012
 
 
 def _sample_goal(rng: np.random.Generator, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
@@ -81,12 +88,42 @@ def _formal_difficulty(
     return "easy"
 
 
+def _formal_v2_difficulty(
+    q0: np.ndarray,
+    qg: np.ndarray,
+    goal_ee: np.ndarray,
+    goal_margin: float,
+    straight_margin: float,
+) -> str:
+    joint_dist = float(np.linalg.norm(qg - q0))
+    ee_dist = float(np.linalg.norm(goal_ee - np.array([0.48397353, 0.13337938, 0.72136778])))
+    if (
+        straight_margin < 0.018
+        or (goal_margin < 0.035 and joint_dist > 1.8)
+        or (goal_margin < 0.055 and (joint_dist > 3.0 or ee_dist > 0.43))
+    ):
+        return "hard_reach"
+    if goal_margin < 0.055 or straight_margin < 0.04:
+        return "around_tall_obstacle"
+    if goal_margin < 0.085 or straight_margin < 0.075:
+        return "near_obstacle"
+    return "easy"
+
+
 def _target_quota(num_targets: int, profile: str) -> dict[str, int]:
-    if profile != "formal":
+    if profile == "pilot":
         return {"pilot_tall_near_wall": num_targets}
-    base = num_targets // len(FORMAL_DIFFICULTY_TAGS)
-    quota = {tag: base for tag in FORMAL_DIFFICULTY_TAGS}
-    for tag in FORMAL_DIFFICULTY_TAGS[: num_targets - base * len(FORMAL_DIFFICULTY_TAGS)]:
+    if profile == "formal_v2":
+        return {
+            "easy": 10,
+            "near_obstacle": 15,
+            "around_tall_obstacle": 20,
+            "hard_reach": 15,
+        }
+    tags = FORMAL_DIFFICULTY_TAGS
+    base = num_targets // len(tags)
+    quota = {tag: base for tag in tags}
+    for tag in tags[: num_targets - base * len(tags)]:
         quota[tag] += 1
     return quota
 
@@ -114,16 +151,22 @@ def generate_targets(num_targets: int, seed: int, profile: str = "pilot") -> dic
         goal_valid = checker.check_state(qg)
         if not goal_valid.valid:
             continue
-        if profile == "formal" and goal_valid.minimum_safety_margin < FORMAL_MIN_GOAL_MARGIN:
+        min_goal_margin = FORMAL_V2_MIN_GOAL_MARGIN if profile == "formal_v2" else FORMAL_MIN_GOAL_MARGIN
+        if profile in {"formal", "formal_v2"} and goal_valid.minimum_safety_margin < min_goal_margin:
             continue
         goal_ee = checker.ee_position(qg)
         if not _workspace_ok(goal_ee):
             continue
-        if seen_goal_ee and min(float(np.linalg.norm(goal_ee - p)) for p in seen_goal_ee) < 0.08:
+        min_ee_separation = 0.045 if profile == "formal_v2" else 0.08
+        if seen_goal_ee and min(float(np.linalg.norm(goal_ee - p)) for p in seen_goal_ee) < min_ee_separation:
             continue
 
         motion = checker.check_motion(q0, qg, resolution=0.10)
-        if profile == "formal":
+        if profile == "formal_v2":
+            difficulty = _formal_v2_difficulty(q0, qg, goal_ee, goal_valid.minimum_safety_margin, motion.minimum_safety_margin)
+            if counts.get(difficulty, 0) >= quota.get(difficulty, 0):
+                continue
+        elif profile == "formal":
             difficulty = _formal_difficulty(q0, qg, goal_ee, goal_valid.minimum_safety_margin, motion.minimum_safety_margin)
             if counts.get(difficulty, 0) >= quota.get(difficulty, 0):
                 continue
@@ -152,7 +195,8 @@ def generate_targets(num_targets: int, seed: int, profile: str = "pilot") -> dic
                     "straight_line_min_margin": float(motion.minimum_safety_margin),
                     "joint_distance": q_dist,
                     "workspace_bounds": WORKSPACE_BOUNDS,
-                    "formal_min_goal_margin": FORMAL_MIN_GOAL_MARGIN if profile == "formal" else None,
+                    "formal_min_goal_margin": min_goal_margin if profile in {"formal", "formal_v2"} else None,
+                    "min_ee_separation": min_ee_separation,
                 },
             }
         )
@@ -188,12 +232,14 @@ def main() -> int:
     parser.add_argument("--num-targets", type=int, default=3)
     parser.add_argument("--output", default="examples/static_compare/targets/static_tall_targets.json")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--profile", choices=["pilot", "formal"], default="pilot")
+    parser.add_argument("--profile", choices=["pilot", "formal", "formal_v2"], default="pilot")
     args = parser.parse_args()
     if args.profile == "pilot" and not (3 <= args.num_targets <= 5):
         raise ValueError("--num-targets must be between 3 and 5 for this tuned-reference pilot")
     if args.profile == "formal" and args.num_targets not in {20, 30}:
         raise ValueError("--num-targets must be 20 or 30 for formal static tall preparation")
+    if args.profile == "formal_v2" and args.num_targets != 60:
+        raise ValueError("--num-targets must be 60 for formal_v2 static tall preparation")
     payload = generate_targets(args.num_targets, args.seed, profile=args.profile)
     write_json(args.output, payload)
     print(

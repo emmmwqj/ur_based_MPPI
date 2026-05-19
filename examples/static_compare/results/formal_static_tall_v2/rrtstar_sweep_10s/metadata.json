@@ -1,0 +1,61 @@
+{
+  "backend": "python_internal_tuned_logic",
+  "call_chains": {
+    "sage_mppi_tuned": {
+      "config_path": "examples/SAGE_MPPI/clean_SAGE/config/ur7e_reacher_gazebo_tall_sage_clean.yml",
+      "controller_entrypoint_logic_reproduced_from": "examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py",
+      "controller_initialized_in_static_compare": true,
+      "deployment_refinement_enabled_by_tuned_config": true,
+      "local_refinement_enabled_by_tuned_config": true,
+      "reference_script_read_only": "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh",
+      "world_path": "examples/sim_gazebo/config/collision_world_gazebo_tall.yml"
+    },
+    "storm_mppi_tuned": {
+      "config_path": "examples/sim_gazebo/config/ur7e_reacher_gazebo_tall.yml",
+      "controller_entrypoint_logic_reproduced_from": "examples/sim_gazebo/reach_static_ur7e_tall.py",
+      "controller_initialized_in_static_compare": true,
+      "reference_script_read_only": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh",
+      "world_path": "examples/sim_gazebo/config/collision_world_gazebo_tall.yml"
+    }
+  },
+  "gazebo_launch": {
+    "entrypoint": "ros2 launch ur_simulation_gazebo ur_sim_control.launch.py",
+    "gazebo_gui": false,
+    "initial_positions_file": "examples/sim_gazebo/config/initial_positions.yaml",
+    "launch_rviz": false
+  },
+  "limit_targets": 0,
+  "limitations": [
+    "STORM/SAGE safety margin is recomputed from observed joint states by the shared static_collision_checker for unified logging.",
+    "RRT* uses paired joint-space goals generated for the target set; STORM/SAGE receive the shared Cartesian goal through /target_pose.",
+    "Gazebo is restarted for each STORM/SAGE target to reset to the tuned initial_positions.yaml state."
+  ],
+  "max_runtime": 120.0,
+  "max_steps": 0,
+  "methods_requested": [
+    "rrtstar_ompl"
+  ],
+  "metric_definitions": {
+    "minimum_safety_margin": "StaticTallCollisionChecker geometric minimum margin over executed or planned states.",
+    "planning_time": "STORM/SAGE cumulative synchronous command solve wall time; RRT* OMPL solve wall time.",
+    "success": "final_ee_error < success_threshold and collision=False and timeout=False"
+  },
+  "num_episode_rows": 60,
+  "num_step_rows": 2862,
+  "reset_after_each_target": true,
+  "rrtstar": {
+    "available": true,
+    "collision_check_resolution": 0.05,
+    "goal_bias": 0.05,
+    "interpolation_resolution": 0.05,
+    "planning_time_limit": 10.0,
+    "skipped_reason": "",
+    "validity_checker": "examples/static_compare/utils/static_collision_checker.py"
+  },
+  "scene": "tall",
+  "seed": 23,
+  "success_threshold": 0.05,
+  "target_injection": "/target_pose",
+  "target_publish_duration": 2.0,
+  "targets_path": "/home/wqj/storm/examples/static_compare/targets/static_tall_targets_formal_v2.json"
+}

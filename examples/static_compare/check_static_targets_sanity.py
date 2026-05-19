@@ -21,7 +21,7 @@ DEFAULT_WORKSPACE_BOUNDS = {
     "y": [-0.62, 0.62],
     "z": [0.18, 0.86],
 }
-DIFFICULTY_TAGS = {"easy", "near_obstacle", "around_tall_obstacle", "far_reach"}
+DIFFICULTY_TAGS = {"easy", "near_obstacle", "around_tall_obstacle", "far_reach", "hard_reach"}
 
 
 def _workspace_ok(goal_ee: np.ndarray, bounds: dict) -> bool:
@@ -78,8 +78,13 @@ def _validate_target(target: dict, checker: StaticTallCollisionChecker, bounds: 
     motion = checker.check_motion(q0, qg, resolution=0.10)
     if not motion.valid:
         warnings.append(
-            "straight-line joint interpolation is invalid; this is allowed for around-obstacle targets "
+            "straight-line joint interpolation is invalid; this is allowed for hard/around-obstacle targets "
             f"but recorded. straight_line_min_margin={motion.minimum_safety_margin:.6g}"
+        )
+    elif motion.minimum_safety_margin < 0.02:
+        warnings.append(
+            "straight-line joint interpolation is very close to obstacles; retained as a hard case. "
+            f"straight_line_min_margin={motion.minimum_safety_margin:.6g}"
         )
 
     return {
