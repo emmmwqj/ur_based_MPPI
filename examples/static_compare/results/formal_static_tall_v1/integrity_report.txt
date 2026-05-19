@@ -1,0 +1,43 @@
+Static tall benchmark integrity report
+status: pass
+passed: 37
+warnings: 0
+failed: 0
+
+[pass] no_dynamic_scene_paths: No sim_dynamic or sage_sim_dynamic paths referenced.
+[pass] scene_is_tall: tall
+[pass] target_count_formal_size: profile=formal, count=20
+[pass] target_static_tall_formal_000_validity: ok
+[pass] target_static_tall_formal_001_validity: ok
+[pass] target_static_tall_formal_002_validity: ok
+[pass] target_static_tall_formal_003_validity: ok
+[pass] target_static_tall_formal_004_validity: ok
+[pass] target_static_tall_formal_005_validity: ok
+[pass] target_static_tall_formal_006_validity: ok
+[pass] target_static_tall_formal_007_validity: ok
+[pass] target_static_tall_formal_008_validity: ok
+[pass] target_static_tall_formal_009_validity: ok
+[pass] target_static_tall_formal_010_validity: ok
+[pass] target_static_tall_formal_011_validity: ok
+[pass] target_static_tall_formal_012_validity: ok
+[pass] target_static_tall_formal_013_validity: ok
+[pass] target_static_tall_formal_014_validity: ok
+[pass] target_static_tall_formal_015_validity: ok
+[pass] target_static_tall_formal_016_validity: ok
+[pass] target_static_tall_formal_017_validity: ok
+[pass] target_static_tall_formal_018_validity: ok
+[pass] target_static_tall_formal_019_validity: ok
+[pass] python_internal_tuned_logic_backend: python_internal_tuned_logic
+[pass] does_not_shell_wrap_tuned_references: python_internal_tuned_logic
+[pass] storm_reference_read_only: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+[pass] sage_reference_read_only: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+[pass] storm_internal_runner_present: examples/static_compare/storm_tall_runner.py
+[pass] sage_internal_runner_present: examples/static_compare/sage_tall_runner.py
+[pass] gazebo_launch_reimplemented_in_python: True
+[pass] sage_clean_core_path: examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py
+[pass] sage_deployment_refinement_matches_tuned: enabled=True
+[pass] sage_local_refinement_matches_tuned: enabled=True
+[pass] reset_after_each_target: True
+[pass] rrtstar_uses_static_collision_checker: static_collision_checker
+[pass] rrtstar_ompl_import: OMPL Python binding imported.
+[pass] result_schema_consistency: Episode CSV fields match unified schema.

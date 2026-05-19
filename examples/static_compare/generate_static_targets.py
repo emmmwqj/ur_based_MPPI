@@ -34,13 +34,64 @@ def _load_tuned_initial_joint_positions() -> np.ndarray:
     return np.asarray([params[name] for name in JOINT_NAMES], dtype=float)
 
 
+WORKSPACE_BOUNDS = {
+    "x": [0.18, 0.82],
+    "y": [-0.62, 0.62],
+    "z": [0.18, 0.86],
+}
+
+FORMAL_DIFFICULTY_TAGS = [
+    "easy",
+    "near_obstacle",
+    "around_tall_obstacle",
+    "far_reach",
+]
+FORMAL_MIN_GOAL_MARGIN = 0.015
+
+
 def _sample_goal(rng: np.random.Generator, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
-    practical_lower = np.maximum(lower, np.array([-2.4, -2.45, -1.8, -2.8, -2.6, -2.8]))
-    practical_upper = np.minimum(upper, np.array([2.4, -0.45, 2.4, -0.35, -0.45, 2.8]))
+    practical_lower = np.maximum(lower, np.array([-2.5, -2.45, -1.85, -2.85, -2.65, -2.85]))
+    practical_upper = np.minimum(upper, np.array([2.5, -0.40, 2.45, -0.30, -0.40, 2.85]))
     return rng.uniform(practical_lower, practical_upper)
 
 
-def generate_targets(num_targets: int, seed: int) -> dict:
+def _workspace_ok(goal_ee: np.ndarray) -> bool:
+    return bool(
+        WORKSPACE_BOUNDS["x"][0] <= goal_ee[0] <= WORKSPACE_BOUNDS["x"][1]
+        and WORKSPACE_BOUNDS["y"][0] <= goal_ee[1] <= WORKSPACE_BOUNDS["y"][1]
+        and WORKSPACE_BOUNDS["z"][0] <= goal_ee[2] <= WORKSPACE_BOUNDS["z"][1]
+    )
+
+
+def _formal_difficulty(
+    q0: np.ndarray,
+    qg: np.ndarray,
+    goal_ee: np.ndarray,
+    goal_margin: float,
+    straight_margin: float,
+) -> str:
+    joint_dist = float(np.linalg.norm(qg - q0))
+    ee_dist = float(np.linalg.norm(goal_ee - np.array([0.48397353, 0.13337938, 0.72136778])))
+    if joint_dist > 3.2 or ee_dist > 0.45:
+        return "far_reach"
+    if goal_margin < 0.04 or straight_margin < 0.03:
+        return "around_tall_obstacle"
+    if goal_margin < 0.075 or straight_margin < 0.06:
+        return "near_obstacle"
+    return "easy"
+
+
+def _target_quota(num_targets: int, profile: str) -> dict[str, int]:
+    if profile != "formal":
+        return {"pilot_tall_near_wall": num_targets}
+    base = num_targets // len(FORMAL_DIFFICULTY_TAGS)
+    quota = {tag: base for tag in FORMAL_DIFFICULTY_TAGS}
+    for tag in FORMAL_DIFFICULTY_TAGS[: num_targets - base * len(FORMAL_DIFFICULTY_TAGS)]:
+        quota[tag] += 1
+    return quota
+
+
+def generate_targets(num_targets: int, seed: int, profile: str = "pilot") -> dict:
     rng = np.random.default_rng(seed)
     checker = StaticTallCollisionChecker(include_ground=True)
     q0 = _load_tuned_initial_joint_positions()
@@ -50,8 +101,10 @@ def generate_targets(num_targets: int, seed: int) -> dict:
 
     targets = []
     seen_goal_ee: list[np.ndarray] = []
+    quota = _target_quota(num_targets, profile)
+    counts = {key: 0 for key in quota}
     attempts = 0
-    max_attempts = max(2000, num_targets * 1000)
+    max_attempts = max(20000, num_targets * 3000)
     while len(targets) < num_targets and attempts < max_attempts:
         attempts += 1
         qg = _sample_goal(rng, checker.joint_lower, checker.joint_upper)
@@ -61,17 +114,24 @@ def generate_targets(num_targets: int, seed: int) -> dict:
         goal_valid = checker.check_state(qg)
         if not goal_valid.valid:
             continue
+        if profile == "formal" and goal_valid.minimum_safety_margin < FORMAL_MIN_GOAL_MARGIN:
+            continue
         goal_ee = checker.ee_position(qg)
-        if not (0.18 <= goal_ee[0] <= 0.82 and -0.62 <= goal_ee[1] <= 0.62 and 0.18 <= goal_ee[2] <= 0.86):
+        if not _workspace_ok(goal_ee):
             continue
         if seen_goal_ee and min(float(np.linalg.norm(goal_ee - p)) for p in seen_goal_ee) < 0.08:
             continue
 
         motion = checker.check_motion(q0, qg, resolution=0.10)
-        difficulty = "pilot_tall_near_wall" if motion.minimum_safety_margin < 0.12 else "pilot_tall_open"
+        if profile == "formal":
+            difficulty = _formal_difficulty(q0, qg, goal_ee, goal_valid.minimum_safety_margin, motion.minimum_safety_margin)
+            if counts.get(difficulty, 0) >= quota.get(difficulty, 0):
+                continue
+        else:
+            difficulty = "pilot_tall_near_wall" if motion.minimum_safety_margin < 0.12 else "pilot_tall_open"
         targets.append(
             {
-                "target_id": f"tuned_tall_pilot_{len(targets):02d}",
+                "target_id": f"static_tall_{profile}_{len(targets):03d}",
                 "scene": "tall",
                 "initial_joint_positions": q0.round(8).tolist(),
                 "goal_joint_positions": qg.round(8).tolist(),
@@ -80,29 +140,40 @@ def generate_targets(num_targets: int, seed: int) -> dict:
                 "notes": (
                     "Common target for tuned STORM/SAGE references. The reference scripts accept "
                     "Cartesian goals through /target_pose; RRT* uses the paired joint-space goal. "
-                    "Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml."
+                    "Initial state is exactly examples/sim_gazebo/config/initial_positions.yaml. "
+                    f"Profile={profile}; difficulty_tag={difficulty}."
                 ),
                 "generation": {
                     "seed": seed,
+                    "profile": profile,
                     "attempt_index": attempts,
                     "initial_margin": float(q0_valid.minimum_safety_margin),
                     "goal_margin": float(goal_valid.minimum_safety_margin),
                     "straight_line_min_margin": float(motion.minimum_safety_margin),
                     "joint_distance": q_dist,
+                    "workspace_bounds": WORKSPACE_BOUNDS,
+                    "formal_min_goal_margin": FORMAL_MIN_GOAL_MARGIN if profile == "formal" else None,
                 },
             }
         )
         seen_goal_ee.append(goal_ee)
+        counts[difficulty] = counts.get(difficulty, 0) + 1
 
     if len(targets) < num_targets:
-        raise RuntimeError(f"Generated only {len(targets)} targets after {attempts} attempts")
+        raise RuntimeError(
+            f"Generated only {len(targets)} targets after {attempts} attempts; "
+            f"counts={counts}, quota={quota}"
+        )
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "scene": "tall",
         "seed": seed,
+        "profile": profile,
         "target_count": len(targets),
         "initial_positions_source": INITIAL_POSITIONS_FILE,
+        "workspace_bounds": WORKSPACE_BOUNDS,
+        "difficulty_counts": counts,
         "tuned_reference_default_goals": {
             "storm_mppi_tuned": [0.5, -0.45, 0.4],
             "sage_mppi_tuned": [0.4, -0.5, 0.4],
@@ -117,12 +188,18 @@ def main() -> int:
     parser.add_argument("--num-targets", type=int, default=3)
     parser.add_argument("--output", default="examples/static_compare/targets/static_tall_targets.json")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--profile", choices=["pilot", "formal"], default="pilot")
     args = parser.parse_args()
-    if not (3 <= args.num_targets <= 5):
+    if args.profile == "pilot" and not (3 <= args.num_targets <= 5):
         raise ValueError("--num-targets must be between 3 and 5 for this tuned-reference pilot")
-    payload = generate_targets(args.num_targets, args.seed)
+    if args.profile == "formal" and args.num_targets not in {20, 30}:
+        raise ValueError("--num-targets must be 20 or 30 for formal static tall preparation")
+    payload = generate_targets(args.num_targets, args.seed, profile=args.profile)
     write_json(args.output, payload)
-    print(f"wrote {payload['target_count']} tuned static tall targets to {args.output}")
+    print(
+        f"wrote {payload['target_count']} {args.profile} tuned static tall targets to {args.output}; "
+        f"difficulty_counts={payload.get('difficulty_counts')}"
+    )
     return 0
 
 

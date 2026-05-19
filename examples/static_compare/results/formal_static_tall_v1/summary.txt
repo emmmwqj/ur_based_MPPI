@@ -1,0 +1,6 @@
+Static tall benchmark summary
+
+rrtstar_ompl: episodes=20, status=ok, success_rate=0.95, collision_rate=0, timeout_rate=0, mean_final_ee_error=0.033703, mean_min_margin=0.054016
+  skipped_reason: OMPL RRTstar returned only an approximate solution within the planning time limit
+sage_mppi_tuned: episodes=20, status=ok, success_rate=1, collision_rate=0, timeout_rate=0, mean_final_ee_error=0.048665, mean_min_margin=0.073821
+storm_mppi_tuned: episodes=20, status=ok, success_rate=1, collision_rate=0, timeout_rate=0, mean_final_ee_error=0.048958, mean_min_margin=0.073232

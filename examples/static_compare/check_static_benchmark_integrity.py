@@ -53,7 +53,14 @@ def _check_no_dynamic_paths(report: dict, config: dict) -> None:
 def _check_target_set(report: dict, targets_payload: dict, checker: StaticTallCollisionChecker) -> None:
     targets = targets_payload.get("targets", [])
     _record(report, "scene_is_tall", "pass" if targets_payload.get("scene") == "tall" else "fail", str(targets_payload.get("scene")))
-    _record(report, "target_count_pilot_size", "pass" if 3 <= len(targets) <= 5 else "fail", f"count={len(targets)}")
+    profile = str(targets_payload.get("profile", "pilot"))
+    if profile == "formal":
+        ok_count = len(targets) in {20, 30}
+        check_name = "target_count_formal_size"
+    else:
+        ok_count = 3 <= len(targets) <= 5
+        check_name = "target_count_pilot_size"
+    _record(report, check_name, "pass" if ok_count else "fail", f"profile={profile}, count={len(targets)}")
 
     seen_ids = set()
     seen_goals: list[np.ndarray] = []

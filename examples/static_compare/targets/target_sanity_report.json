@@ -1,0 +1,357 @@
+{
+  "checks": [
+    {
+      "difficulty_tag": "easy",
+      "fk_error": 5.9098503205987104e-09,
+      "goal_ee_position": [
+        0.31063148,
+        -0.04646067,
+        0.8475638
+      ],
+      "goal_margin": 0.0878999940395355,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.0878999940395355,
+      "target_id": "static_tall_formal_000",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "fk_error": 5.5975976764662945e-09,
+      "goal_ee_position": [
+        0.58381999,
+        -0.16991708,
+        0.61589998
+      ],
+      "goal_margin": 0.03510427637164018,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.03510427637164018,
+      "target_id": "static_tall_formal_001",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "fk_error": 4.1038698580949795e-09,
+      "goal_ee_position": [
+        0.21008283,
+        0.07395399,
+        0.82634735
+      ],
+      "goal_margin": 0.05344308607917676,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.05344308607917676,
+      "target_id": "static_tall_formal_002",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "fk_error": 1.2272775066898352e-09,
+      "goal_ee_position": [
+        0.25277847,
+        0.06258081,
+        0.46673122
+      ],
+      "goal_margin": 0.051735746133327494,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.051735746133327494,
+      "target_id": "static_tall_formal_003",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "fk_error": 3.8085449347416735e-09,
+      "goal_ee_position": [
+        0.25133228,
+        -0.0863384,
+        0.70811641
+      ],
+      "goal_margin": 0.04916442229003386,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.04916442229003386,
+      "target_id": "static_tall_formal_004",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "fk_error": 7.509104321114352e-08,
+      "goal_ee_position": [
+        0.30221424,
+        0.39520758,
+        0.51666349
+      ],
+      "goal_margin": 0.03817003366500142,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.03817003366500142,
+      "target_id": "static_tall_formal_005",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "easy",
+      "fk_error": 5.6316085007046475e-09,
+      "goal_ee_position": [
+        0.38558701,
+        0.38327369,
+        0.69241416
+      ],
+      "goal_margin": 0.0878999940395355,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.0878999940395355,
+      "target_id": "static_tall_formal_006",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "easy",
+      "fk_error": 2.7413709732442707e-08,
+      "goal_ee_position": [
+        0.46043137,
+        0.29596823,
+        0.7404474
+      ],
+      "goal_margin": 0.0878999940395355,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.0878999940395355,
+      "target_id": "static_tall_formal_007",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "far_reach",
+      "fk_error": 4.6971755509191825e-09,
+      "goal_ee_position": [
+        0.23036253,
+        0.54838407,
+        0.52088642
+      ],
+      "goal_margin": 0.05907780623559411,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.04455739496558944,
+      "target_id": "static_tall_formal_008",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "easy",
+      "fk_error": 3.6937751644364033e-09,
+      "goal_ee_position": [
+        0.33643144,
+        -0.09582033,
+        0.57841897
+      ],
+      "goal_margin": 0.08120531150816723,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.08120531150816723,
+      "target_id": "static_tall_formal_009",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "far_reach",
+      "fk_error": 5.087879744703468e-09,
+      "goal_ee_position": [
+        0.22313556,
+        0.02022958,
+        0.33775941
+      ],
+      "goal_margin": 0.06255936093330383,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.058161144787147255,
+      "target_id": "static_tall_formal_010",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "fk_error": 7.116142305298545e-09,
+      "goal_ee_position": [
+        0.47564512,
+        -0.10788728,
+        0.65297759
+      ],
+      "goal_margin": 0.04973056071276191,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.04973056071276191,
+      "target_id": "static_tall_formal_011",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "near_obstacle",
+      "fk_error": 1.0867898662838077e-09,
+      "goal_ee_position": [
+        0.45934251,
+        0.44706145,
+        0.62623012
+      ],
+      "goal_margin": 0.05747354574642052,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.05747354574642052,
+      "target_id": "static_tall_formal_012",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "far_reach",
+      "fk_error": 5.076997866702681e-09,
+      "goal_ee_position": [
+        0.26887453,
+        0.00116129,
+        0.19118731
+      ],
+      "goal_margin": 0.07307567117810251,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.05040054608620426,
+      "target_id": "static_tall_formal_013",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "easy",
+      "fk_error": 6.104608984708267e-09,
+      "goal_ee_position": [
+        0.18049499,
+        0.00259572,
+        0.51206684
+      ],
+      "goal_margin": 0.0878999940395355,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.0878999940395355,
+      "target_id": "static_tall_formal_014",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "far_reach",
+      "fk_error": 5.730071277213295e-09,
+      "goal_ee_position": [
+        0.35614014,
+        -0.10364535,
+        0.33255118
+      ],
+      "goal_margin": 0.03357427158355711,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.03357427158355711,
+      "target_id": "static_tall_formal_015",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "far_reach",
+      "fk_error": 6.02511176821414e-09,
+      "goal_ee_position": [
+        0.24325015,
+        0.60570639,
+        0.32316142
+      ],
+      "goal_margin": 0.021510335716406828,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": -9.946594004817816e-05,
+      "target_id": "static_tall_formal_016",
+      "valid": true,
+      "warnings": [
+        "straight-line joint interpolation is invalid; this is allowed for around-obstacle targets but recorded. straight_line_min_margin=-9.94659e-05"
+      ]
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "fk_error": 4.406068192730179e-09,
+      "goal_ee_position": [
+        0.40971923,
+        -0.08274551,
+        0.85844982
+      ],
+      "goal_margin": 0.032214420728242946,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.032214420728242946,
+      "target_id": "static_tall_formal_017",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "fk_error": 6.1631661693262515e-09,
+      "goal_ee_position": [
+        0.63312358,
+        -0.14926016,
+        0.67919511
+      ],
+      "goal_margin": 0.02805552240554421,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.004109465097484374,
+      "target_id": "static_tall_formal_018",
+      "valid": true,
+      "warnings": []
+    },
+    {
+      "difficulty_tag": "around_tall_obstacle",
+      "fk_error": 4.517466440696001e-09,
+      "goal_ee_position": [
+        0.49894303,
+        -0.1456368,
+        0.51719093
+      ],
+      "goal_margin": 0.0197987691473068,
+      "initial_margin": 0.0878999940395355,
+      "reasons": [],
+      "straight_line_min_margin": 0.0197987691473068,
+      "target_id": "static_tall_formal_019",
+      "valid": true,
+      "warnings": []
+    }
+  ],
+  "difficulty_counts_valid": {
+    "around_tall_obstacle": 5,
+    "easy": 5,
+    "far_reach": 5,
+    "near_obstacle": 5
+  },
+  "invalid_count": 0,
+  "status": "pass",
+  "targets_path": "/home/wqj/storm/examples/static_compare/targets/static_tall_targets_formal.json",
+  "total_targets": 20,
+  "tuned_target_interface": {
+    "rrtstar_ompl": "initial_joint_positions + goal_joint_positions",
+    "sage_mppi_tuned": "/target_pose PoseStamped position only",
+    "storm_mppi_tuned": "/target_pose PoseStamped position only"
+  },
+  "valid_count": 20,
+  "warning_count": 1,
+  "workspace_bounds": {
+    "x": [
+      0.18,
+      0.82
+    ],
+    "y": [
+      -0.62,
+      0.62
+    ],
+    "z": [
+      0.18,
+      0.86
+    ]
+  }
+}

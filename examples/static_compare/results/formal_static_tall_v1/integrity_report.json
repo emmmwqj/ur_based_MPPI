@@ -1,0 +1,198 @@
+{
+  "checks": [
+    {
+      "detail": "No sim_dynamic or sage_sim_dynamic paths referenced.",
+      "name": "no_dynamic_scene_paths",
+      "status": "pass"
+    },
+    {
+      "detail": "tall",
+      "name": "scene_is_tall",
+      "status": "pass"
+    },
+    {
+      "detail": "profile=formal, count=20",
+      "name": "target_count_formal_size",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_000_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_001_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_002_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_003_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_004_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_005_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_006_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_007_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_008_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_009_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_010_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_011_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_012_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_013_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_014_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_015_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_016_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_017_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_018_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "ok",
+      "name": "target_static_tall_formal_019_validity",
+      "status": "pass"
+    },
+    {
+      "detail": "python_internal_tuned_logic",
+      "name": "python_internal_tuned_logic_backend",
+      "status": "pass"
+    },
+    {
+      "detail": "python_internal_tuned_logic",
+      "name": "does_not_shell_wrap_tuned_references",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/sim_gazebo/bash/run_all_reach_static_tall.sh",
+      "name": "storm_reference_read_only",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh",
+      "name": "sage_reference_read_only",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/static_compare/storm_tall_runner.py",
+      "name": "storm_internal_runner_present",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/static_compare/sage_tall_runner.py",
+      "name": "sage_internal_runner_present",
+      "status": "pass"
+    },
+    {
+      "detail": "True",
+      "name": "gazebo_launch_reimplemented_in_python",
+      "status": "pass"
+    },
+    {
+      "detail": "examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py",
+      "name": "sage_clean_core_path",
+      "status": "pass"
+    },
+    {
+      "detail": "enabled=True",
+      "name": "sage_deployment_refinement_matches_tuned",
+      "status": "pass"
+    },
+    {
+      "detail": "enabled=True",
+      "name": "sage_local_refinement_matches_tuned",
+      "status": "pass"
+    },
+    {
+      "detail": "True",
+      "name": "reset_after_each_target",
+      "status": "pass"
+    },
+    {
+      "detail": "static_collision_checker",
+      "name": "rrtstar_uses_static_collision_checker",
+      "status": "pass"
+    },
+    {
+      "detail": "OMPL Python binding imported.",
+      "name": "rrtstar_ompl_import",
+      "status": "pass"
+    },
+    {
+      "detail": "Episode CSV fields match unified schema.",
+      "name": "result_schema_consistency",
+      "status": "pass"
+    }
+  ],
+  "collision_checker_warnings": [
+    "Uses analytic link-sphere vs primitive-obstacle distances.",
+    "Does not query Gazebo contacts or Gazebo physics.",
+    "Does not include robot self-collision in this pilot checker."
+  ],
+  "failed": 0,
+  "passed": 37,
+  "status": "pass",
+  "warnings": 0
+}
