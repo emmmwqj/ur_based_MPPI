@@ -14,6 +14,7 @@ def nan() -> float:
 
 EPISODE_FIELDS = [
     "method_name",
+    "benchmark_seed",
     "episode_id",
     "target_id",
     "difficulty_tag",
@@ -61,6 +62,7 @@ EPISODE_FIELDS = [
 
 STEP_FIELDS = [
     "method_name",
+    "benchmark_seed",
     "episode_id",
     "target_id",
     "difficulty_tag",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import random
 import sys
 import time
 import traceback
@@ -30,6 +31,19 @@ from examples.static_compare.utils.metrics import (
     write_csv,
 )
 from examples.static_compare.utils.static_collision_checker import StaticTallCollisionChecker
+
+
+def _set_benchmark_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except Exception:
+        pass
 
 
 def _base_rrtstar_row(episode_id: int, target_id: str) -> dict:
@@ -222,10 +236,16 @@ def main() -> int:
     parser.add_argument("--no-cuda", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--rate", type=float, default=50.0)
-    parser.add_argument("--viz-update-every", type=int, default=1)
+    parser.add_argument(
+        "--viz-update-every",
+        type=int,
+        default=0,
+        help="Publish benchmark visualization markers every N control loops; 0 disables marker publishing.",
+    )
     parser.add_argument("--target-publish-duration", type=float, default=2.0)
     parser.add_argument("--rrtstar-time-limit", type=float, default=2.0)
     args = parser.parse_args()
+    _set_benchmark_seed(args.seed)
 
     output_root = ensure_dir(resolve_repo_path(args.output_root))
     log_root = ensure_dir(output_root / "runtime_logs")
@@ -250,6 +270,10 @@ def main() -> int:
         "reset_after_each_target": True,
         "target_injection": "/target_pose",
         "target_publish_duration": args.target_publish_duration,
+        "benchmark_marker_visualization": {
+            "enabled": args.viz_update_every > 0,
+            "viz_update_every": args.viz_update_every,
+        },
         "gazebo_launch": {
             "entrypoint": "ros2 launch ur_simulation_gazebo ur_sim_control.launch.py",
             "initial_positions_file": "examples/sim_gazebo/config/initial_positions.yaml",
@@ -343,8 +367,10 @@ def main() -> int:
                 metadata.setdefault("exceptions", []).append(
                     {"method": method, "target_id": target.get("target_id"), "traceback": traceback.format_exc()}
                 )
+            row["benchmark_seed"] = args.seed
             row["difficulty_tag"] = target.get("difficulty_tag", "")
             for step in steps:
+                step["benchmark_seed"] = args.seed
                 step["difficulty_tag"] = target.get("difficulty_tag", "")
             episode_rows.append(row)
             step_rows.extend(steps)

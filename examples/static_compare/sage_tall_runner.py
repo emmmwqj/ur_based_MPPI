@@ -186,14 +186,14 @@ class SageTallRunner:
         checker: StaticTallCollisionChecker,
         use_cuda: bool = True,
         rate: float = 50.0,
-        viz_update_every: int = 1,
+        viz_update_every: int = 0,
         target_publish_period: float = 0.25,
         target_publish_duration: float = 2.0,
     ) -> None:
         self.checker = checker
         self.use_cuda = bool(use_cuda)
         self.rate = float(rate)
-        self.viz_update_every = max(1, int(viz_update_every))
+        self.viz_update_every = max(0, int(viz_update_every))
         self.target_publish_period = float(target_publish_period)
         self.target_publish_duration = float(target_publish_duration)
 
@@ -302,7 +302,11 @@ class SageTallRunner:
                 time.sleep(0.01)
 
             rollout_fn = mpc.controller.rollout_fn
-            collision_sphere_visualizer = CollisionSphereVisualizer(mpc.exp_params["model"]["robot_collision_params"])
+            collision_sphere_visualizer = (
+                CollisionSphereVisualizer(mpc.exp_params["model"]["robot_collision_params"])
+                if self.viz_update_every > 0
+                else None
+            )
             loop_count = 0
             loop_start = time.time()
             min_margin = float("inf")
@@ -393,7 +397,11 @@ class SageTallRunner:
                         control_dt=control_dt,
                     )
 
-                if loop_count % self.viz_update_every == 0:
+                if (
+                    self.viz_update_every > 0
+                    and collision_sphere_visualizer is not None
+                    and loop_count % self.viz_update_every == 0
+                ):
                     link_pos_robot, link_rot_robot = _compute_link_poses_robot_frame(rollout_fn, q, dq, tensor_args)
                     collision_spheres_world = collision_sphere_visualizer.get_world_spheres(
                         link_pos_robot,

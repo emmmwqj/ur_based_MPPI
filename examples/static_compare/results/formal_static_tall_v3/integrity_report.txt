@@ -1,0 +1,83 @@
+Static tall benchmark integrity report
+status: pass
+passed: 76
+warnings: 1
+failed: 0
+
+[pass] no_dynamic_scene_paths: No sim_dynamic or sage_sim_dynamic paths referenced.
+[pass] scene_is_tall: tall
+[pass] target_count_formal_v3_size: profile=formal_v3, count=60
+[pass] target_static_tall_formal_v3_000_validity: ok
+[pass] target_static_tall_formal_v3_001_validity: ok
+[pass] target_static_tall_formal_v3_002_validity: ok
+[pass] target_static_tall_formal_v3_003_validity: ok
+[pass] target_static_tall_formal_v3_004_validity: ok
+[pass] target_static_tall_formal_v3_005_validity: ok
+[pass] target_static_tall_formal_v3_006_validity: ok
+[pass] target_static_tall_formal_v3_007_validity: ok
+[pass] target_static_tall_formal_v3_008_validity: ok
+[pass] target_static_tall_formal_v3_009_validity: ok
+[pass] target_static_tall_formal_v3_010_validity: ok
+[pass] target_static_tall_formal_v3_011_validity: ok
+[pass] target_static_tall_formal_v3_012_validity: ok
+[pass] target_static_tall_formal_v3_013_validity: ok
+[pass] target_static_tall_formal_v3_014_validity: ok
+[pass] target_static_tall_formal_v3_015_validity: ok
+[pass] target_static_tall_formal_v3_016_validity: ok
+[pass] target_static_tall_formal_v3_017_validity: ok
+[pass] target_static_tall_formal_v3_018_validity: ok
+[pass] target_static_tall_formal_v3_019_validity: ok
+[pass] target_static_tall_formal_v3_020_validity: ok
+[pass] target_static_tall_formal_v3_021_validity: ok
+[pass] target_static_tall_formal_v3_022_validity: ok
+[pass] target_static_tall_formal_v3_023_validity: ok
+[pass] target_static_tall_formal_v3_024_validity: ok
+[pass] target_static_tall_formal_v3_025_validity: ok
+[pass] target_static_tall_formal_v3_026_validity: ok
+[pass] target_static_tall_formal_v3_027_validity: ok
+[pass] target_static_tall_formal_v3_028_validity: ok
+[pass] target_static_tall_formal_v3_029_validity: ok
+[pass] target_static_tall_formal_v3_030_validity: ok
+[pass] target_static_tall_formal_v3_031_validity: ok
+[pass] target_static_tall_formal_v3_032_validity: ok
+[pass] target_static_tall_formal_v3_033_validity: ok
+[pass] target_static_tall_formal_v3_034_validity: ok
+[pass] target_static_tall_formal_v3_035_validity: ok
+[pass] target_static_tall_formal_v3_036_validity: ok
+[pass] target_static_tall_formal_v3_037_validity: ok
+[pass] target_static_tall_formal_v3_038_validity: ok
+[pass] target_static_tall_formal_v3_039_validity: ok
+[pass] target_static_tall_formal_v3_040_validity: ok
+[pass] target_static_tall_formal_v3_041_validity: ok
+[pass] target_static_tall_formal_v3_042_validity: ok
+[pass] target_static_tall_formal_v3_043_validity: ok
+[pass] target_static_tall_formal_v3_044_validity: ok
+[pass] target_static_tall_formal_v3_045_validity: ok
+[pass] target_static_tall_formal_v3_046_validity: ok
+[pass] target_static_tall_formal_v3_047_validity: ok
+[pass] target_static_tall_formal_v3_048_validity: ok
+[pass] target_static_tall_formal_v3_049_validity: ok
+[pass] target_static_tall_formal_v3_050_validity: ok
+[pass] target_static_tall_formal_v3_051_validity: ok
+[pass] target_static_tall_formal_v3_052_validity: ok
+[pass] target_static_tall_formal_v3_053_validity: ok
+[pass] target_static_tall_formal_v3_054_validity: ok
+[pass] target_static_tall_formal_v3_055_validity: ok
+[pass] target_static_tall_formal_v3_056_validity: ok
+[pass] target_static_tall_formal_v3_057_validity: ok
+[pass] target_static_tall_formal_v3_058_validity: ok
+[pass] target_static_tall_formal_v3_059_validity: ok
+[pass] python_internal_tuned_logic_backend: python_internal_tuned_logic
+[pass] does_not_shell_wrap_tuned_references: python_internal_tuned_logic
+[pass] storm_reference_read_only: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+[pass] sage_reference_read_only: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+[pass] storm_internal_runner_present: examples/static_compare/storm_tall_runner.py
+[pass] sage_internal_runner_present: examples/static_compare/sage_tall_runner.py
+[pass] gazebo_launch_reimplemented_in_python: True
+[pass] sage_clean_core_path: examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py
+[pass] sage_deployment_refinement_matches_tuned: enabled=True
+[pass] sage_local_refinement_matches_tuned: enabled=True
+[pass] reset_after_each_target: True
+[pass] rrtstar_uses_static_collision_checker: static_collision_checker
+[pass] rrtstar_ompl_import: OMPL Python binding imported.
+[warn] result_schema_consistency: Episode log not present yet; runner will be checked after pilot.

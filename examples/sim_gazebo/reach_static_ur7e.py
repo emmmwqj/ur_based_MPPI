@@ -629,6 +629,47 @@ class GazeboRobotInterface(Node):
             msg.pose.orientation.w = 1.0
         
         self.pub_ee_pose.publish(msg)
+
+    def publish_live_goal_ee_markers(self, goal_pos: np.ndarray, ee_pos: np.ndarray):
+        """发布轻量目标/末端 marker，供高频 RViz 刷新使用。"""
+        marker_array = MarkerArray()
+        stamp = self.get_clock().now().to_msg()
+
+        goal_marker = Marker()
+        goal_marker.header.frame_id = "world"
+        goal_marker.header.stamp = stamp
+        goal_marker.ns = "goal"
+        goal_marker.id = 0
+        goal_marker.type = Marker.SPHERE
+        goal_marker.action = Marker.ADD
+        goal_marker.pose.position.x = float(goal_pos[0])
+        goal_marker.pose.position.y = float(goal_pos[1])
+        goal_marker.pose.position.z = float(goal_pos[2])
+        goal_marker.pose.orientation.w = 1.0
+        goal_marker.scale.x = 0.06
+        goal_marker.scale.y = 0.06
+        goal_marker.scale.z = 0.06
+        goal_marker.color = ColorRGBA(r=0.9, g=0.1, b=0.1, a=0.8)
+        marker_array.markers.append(goal_marker)
+
+        ee_marker = Marker()
+        ee_marker.header.frame_id = "world"
+        ee_marker.header.stamp = stamp
+        ee_marker.ns = "ee"
+        ee_marker.id = 1
+        ee_marker.type = Marker.SPHERE
+        ee_marker.action = Marker.ADD
+        ee_marker.pose.position.x = float(ee_pos[0])
+        ee_marker.pose.position.y = float(ee_pos[1])
+        ee_marker.pose.position.z = float(ee_pos[2])
+        ee_marker.pose.orientation.w = 1.0
+        ee_marker.scale.x = 0.05
+        ee_marker.scale.y = 0.05
+        ee_marker.scale.z = 0.05
+        ee_marker.color = ColorRGBA(r=0.1, g=0.9, b=0.1, a=0.8)
+        marker_array.markers.append(ee_marker)
+
+        self.pub_markers.publish(marker_array)
     
     def publish_markers(
         self,

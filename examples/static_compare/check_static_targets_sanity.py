@@ -32,7 +32,13 @@ def _workspace_ok(goal_ee: np.ndarray, bounds: dict) -> bool:
     )
 
 
-def _validate_target(target: dict, checker: StaticTallCollisionChecker, bounds: dict, min_goal_margin: float) -> dict:
+def _validate_target(
+    target: dict,
+    checker: StaticTallCollisionChecker,
+    bounds: dict,
+    min_goal_margin: float,
+    min_initial_goal_ee_distance: float,
+) -> dict:
     target_id = str(target.get("target_id", ""))
     reasons: list[str] = []
     warnings: list[str] = []
@@ -63,12 +69,19 @@ def _validate_target(target: dict, checker: StaticTallCollisionChecker, bounds: 
 
     init_valid = checker.check_state(q0)
     goal_valid = checker.check_state(qg)
+    initial_ee = checker.ee_position(q0)
+    initial_goal_ee_distance = float(np.linalg.norm(goal_ee - initial_ee))
     if not init_valid.valid:
         reasons.append(f"initial state invalid; margin={init_valid.minimum_safety_margin:.6g}")
     if not goal_valid.valid:
         reasons.append(f"goal joint state invalid; margin={goal_valid.minimum_safety_margin:.6g}")
     if goal_valid.minimum_safety_margin < min_goal_margin:
         reasons.append(f"goal is too close to/in obstacle; margin={goal_valid.minimum_safety_margin:.6g}")
+    if initial_goal_ee_distance < min_initial_goal_ee_distance:
+        reasons.append(
+            "initial EE is already too close to goal; "
+            f"initial_goal_ee_distance={initial_goal_ee_distance:.6g}"
+        )
 
     fk_goal = checker.ee_position(qg)
     fk_error = float(np.linalg.norm(fk_goal - goal_ee))
@@ -94,6 +107,7 @@ def _validate_target(target: dict, checker: StaticTallCollisionChecker, bounds: 
         "goal_ee_position": goal_ee.round(8).tolist() if goal_ee.shape == (3,) else [],
         "goal_margin": float(goal_valid.minimum_safety_margin),
         "initial_margin": float(init_valid.minimum_safety_margin),
+        "initial_goal_ee_distance": initial_goal_ee_distance,
         "straight_line_min_margin": float(motion.minimum_safety_margin),
         "fk_error": fk_error,
         "reasons": reasons,
@@ -107,12 +121,16 @@ def main() -> int:
     parser.add_argument("--output", default="examples/static_compare/targets/target_sanity_report.json")
     parser.add_argument("--valid-output", default="", help="Optional path for a filtered valid target set")
     parser.add_argument("--min-goal-margin", type=float, default=0.015)
+    parser.add_argument("--min-initial-goal-ee-distance", type=float, default=0.0)
     args = parser.parse_args()
 
     payload = load_json(args.targets_path)
     bounds = payload.get("workspace_bounds", DEFAULT_WORKSPACE_BOUNDS)
     checker = StaticTallCollisionChecker(include_ground=True)
-    checked = [_validate_target(target, checker, bounds, args.min_goal_margin) for target in payload.get("targets", [])]
+    checked = [
+        _validate_target(target, checker, bounds, args.min_goal_margin, args.min_initial_goal_ee_distance)
+        for target in payload.get("targets", [])
+    ]
     valid_ids = {entry["target_id"] for entry in checked if entry["valid"]}
     invalid = [entry for entry in checked if not entry["valid"]]
     warnings = [entry for entry in checked if entry.get("warnings")]
@@ -129,6 +147,8 @@ def main() -> int:
         "invalid_count": len(invalid),
         "warning_count": len(warnings),
         "difficulty_counts_valid": difficulty_counts,
+        "min_goal_margin": args.min_goal_margin,
+        "min_initial_goal_ee_distance": args.min_initial_goal_ee_distance,
         "tuned_target_interface": {
             "storm_mppi_tuned": "/target_pose PoseStamped position only",
             "sage_mppi_tuned": "/target_pose PoseStamped position only",

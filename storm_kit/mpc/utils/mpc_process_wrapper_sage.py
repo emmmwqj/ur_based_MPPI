@@ -11,7 +11,19 @@ import numpy as np
 import torch
 from torch.multiprocessing import Process, Queue
 
-from ..utils.torch_utils import find_first_idx
+
+def _first_idx_after(array, value):
+    idx = torch.nonzero(array > value, as_tuple=False)
+    if idx.numel() == 0:
+        return None
+    return int(idx[0].item())
+
+
+def _shift_steps_for(command_tstep, value):
+    idx = _first_idx_after(command_tstep, value)
+    if idx is None:
+        return 0
+    return max(0, idx)
 
 
 class ControlProcessSage(object):
@@ -71,10 +83,17 @@ class ControlProcessSage(object):
         return self.control_dt
 
     def predict_next_state(self, t_step, curr_state):
-        t1_idx = find_first_idx(self.command_tstep, t_step) - 1
-        t2_idx = find_first_idx(self.command_tstep, t_step + self.mpc_dt)
+        t1_idx = _first_idx_after(self.command_tstep, t_step)
+        if t1_idx is None:
+            return curr_state
+        t2_idx = _first_idx_after(self.command_tstep, t_step + self.mpc_dt)
+        if t2_idx is None:
+            t2_idx = len(self.command_tstep)
 
-        for i in range(t1_idx, t2_idx):
+        start_idx = max(0, t1_idx - 1)
+        end_idx = min(t2_idx, len(self.command[0]))
+
+        for i in range(start_idx, end_idx):
             command = self.command[0][i]
             curr_state = self.controller.rollout_fn.dynamics_model.get_next_state(
                 curr_state,
@@ -90,13 +109,15 @@ class ControlProcessSage(object):
             curr_state = self.predict_next_state(t_step, curr_state)
 
         current_state = np.append(curr_state, t_step + self.mpc_dt)
-        shift_steps = find_first_idx(self.command_tstep, t_step + self.mpc_dt)
+        shift_steps = _shift_steps_for(self.command_tstep, t_step + self.mpc_dt)
         state_tensor = torch.as_tensor(current_state, **self.controller.tensor_args).unsqueeze(0)
 
         mpc_time = time.time()
         command = list(self.controller.optimize(state_tensor, shift_steps=shift_steps))
         mpc_time = time.time() - mpc_time
         command[0] = command[0].cpu().numpy()
+        if command[0].shape[0] == 0:
+            raise RuntimeError("MPC optimizer returned an empty command horizon")
         self.command_tstep = self.traj_tstep + t_step
 
         self.opt_dt = mpc_time
@@ -123,9 +144,7 @@ class ControlProcessSage(object):
                 curr_state = self.predict_next_state(t_step, curr_state)
 
             curr_state = np.append(curr_state, t_step + self.mpc_dt)
-            shift_steps = find_first_idx(self.command_tstep, t_step + self.mpc_dt)
-            if shift_steps < 0:
-                shift_steps = 0
+            shift_steps = _shift_steps_for(self.command_tstep, t_step + self.mpc_dt)
 
             opt_data = {
                 "state": curr_state,
@@ -142,6 +161,8 @@ class ControlProcessSage(object):
             self.params = None
 
         while self.command is None and self.result_queue.empty():
+            if self.opt_process is not None and not self.opt_process.is_alive():
+                raise RuntimeError("MPC optimization process exited before returning a command")
             time.sleep(0.01)
 
         if not self.result_queue.empty():
@@ -166,9 +187,11 @@ class ControlProcessSage(object):
         return act, command_tstep_buffer, self.command[1], command_buffer
 
     def truncate_command(self, command, trunc_tstep, command_tstep):
-        f_idx = find_first_idx(command_tstep, trunc_tstep)
-        if f_idx == -1:
-            f_idx = 0
+        if len(command) == 0:
+            raise RuntimeError("MPC command horizon is empty")
+        f_idx = _first_idx_after(command_tstep, trunc_tstep)
+        if f_idx is None:
+            f_idx = len(command) - 1
         return command[f_idx:], command_tstep[f_idx:]
 
     def update_params(self, **kwargs):

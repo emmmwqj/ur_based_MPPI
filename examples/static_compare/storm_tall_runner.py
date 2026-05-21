@@ -114,14 +114,14 @@ class StormTallRunner:
         checker: StaticTallCollisionChecker,
         use_cuda: bool = True,
         rate: float = 50.0,
-        viz_update_every: int = 1,
+        viz_update_every: int = 0,
         target_publish_period: float = 0.25,
         target_publish_duration: float = 2.0,
     ) -> None:
         self.checker = checker
         self.use_cuda = bool(use_cuda and torch.cuda.is_available())
         self.rate = float(rate)
-        self.viz_update_every = max(1, int(viz_update_every))
+        self.viz_update_every = max(0, int(viz_update_every))
         self.target_publish_period = float(target_publish_period)
         self.target_publish_duration = float(target_publish_duration)
 
@@ -232,7 +232,11 @@ class StormTallRunner:
                 time.sleep(0.01)
 
             rollout_fn = mpc.controller.rollout_fn
-            collision_sphere_visualizer = CollisionSphereVisualizer(mpc.exp_params["model"]["robot_collision_params"])
+            collision_sphere_visualizer = (
+                CollisionSphereVisualizer(mpc.exp_params["model"]["robot_collision_params"])
+                if self.viz_update_every > 0
+                else None
+            )
             loop_count = 0
             loop_start = time.time()
             min_margin = float("inf")
@@ -266,10 +270,14 @@ class StormTallRunner:
                         current_goal_ee = target_robot.copy()
                         current_goal_world = np.asarray(new_target, dtype=float)
                         mpc.update_params(goal_ee_pos=current_goal_ee)
-                        _reset_control_process_timing(mpc.control_process, t_step, control_dt)
-                        cmd_t0 = time.time()
-                        cmd = _get_sync_command(mpc, t_step, state, control_dt)
-                        command_times.append(time.time() - cmd_t0)
+                        try:
+                            _reset_control_process_timing(mpc.control_process, t_step, control_dt)
+                            cmd_t0 = time.time()
+                            cmd = _get_sync_command(mpc, t_step, state, control_dt)
+                            command_times.append(time.time() - cmd_t0)
+                        except Exception:
+                            time.sleep(control_dt)
+                            continue
 
                 if cmd is None:
                     try:
@@ -297,7 +305,11 @@ class StormTallRunner:
                 ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, ee_pos_robot)
                 robot.publish_ee_pose(ee_pos_world)
 
-                if loop_count % self.viz_update_every == 0:
+                if (
+                    self.viz_update_every > 0
+                    and collision_sphere_visualizer is not None
+                    and loop_count % self.viz_update_every == 0
+                ):
                     link_pos_robot, link_rot_robot = _compute_link_poses_robot_frame(rollout_fn, q, dq, tensor_args)
                     collision_spheres_world = collision_sphere_visualizer.get_world_spheres(
                         link_pos_robot,

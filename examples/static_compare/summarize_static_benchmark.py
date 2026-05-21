@@ -27,22 +27,32 @@ SUMMARY_FIELDS = [
     "collision_rate",
     "timeout_rate",
     "mean_final_ee_error",
+    "median_final_ee_error",
     "std_final_ee_error",
     "mean_final_joint_error",
     "mean_minimum_safety_margin",
+    "median_minimum_safety_margin",
     "std_minimum_safety_margin",
     "mean_steps_to_goal",
+    "median_steps_to_goal",
     "mean_wall_time",
+    "median_wall_time",
+    "iqr_wall_time",
     "mean_planning_time",
     "mean_trajectory_length_joint",
+    "median_trajectory_length_joint",
     "mean_trajectory_length_ee",
+    "median_trajectory_length_ee",
     "mean_smoothness_jerk",
+    "median_smoothness_jerk",
     "rrtstar_exact_rate",
     "rrtstar_approximate_rate",
     "skipped_reason",
 ]
 
 PAIRED_TARGET_FIELDS = [
+    "pair_id",
+    "benchmark_seed",
     "target_id",
     "difficulty_tag",
     "storm_success",
@@ -76,6 +86,17 @@ PAIRED_SUMMARY_FIELDS = [
     "storm_win_rate",
 ]
 
+PAIRED_OUTCOME_FIELDS = [
+    "difficulty_tag",
+    "num_pairs",
+    "storm_success_rate",
+    "sage_success_rate",
+    "sage_success_improvement",
+    "storm_timeout_rate",
+    "sage_timeout_rate",
+    "sage_timeout_reduction",
+]
+
 
 def _parse_bool(value: str) -> bool:
     return str(value).strip().lower() in {"true", "1", "yes"}
@@ -97,6 +118,19 @@ def _mean(values: list[float]) -> float:
 def _std(values: list[float]) -> float:
     vals = [v for v in values if not math.isnan(v)]
     return float(statistics.pstdev(vals)) if len(vals) > 1 else math.nan
+
+
+def _median(values: list[float]) -> float:
+    vals = [v for v in values if not math.isnan(v)]
+    return float(statistics.median(vals)) if vals else math.nan
+
+
+def _iqr(values: list[float]) -> float:
+    vals = sorted(v for v in values if not math.isnan(v))
+    if len(vals) < 2:
+        return math.nan
+    q1, _, q3 = statistics.quantiles(vals, n=4, method="inclusive")
+    return float(q3 - q1)
 
 
 def _rate(rows: list[dict], field: str) -> float:
@@ -129,6 +163,15 @@ def _summarize_group(method: str, rows: list[dict], group: str, difficulty_tag: 
         and all(str(row.get("rrtstar_available", "")).strip().lower() == "false" for row in rows)
     )
     status = "unavailable" if all_rrt_unavailable else ("skipped" if skipped_reasons and not any(_parse_bool(r.get("success", "")) for r in rows) else "ok")
+    final_ee_errors = [_parse_float(r.get("final_ee_error", "")) for r in rows]
+    final_joint_errors = [_parse_float(r.get("final_joint_error", "")) for r in rows]
+    margins = [_parse_float(r.get("minimum_safety_margin", "")) for r in rows]
+    steps = [_parse_float(r.get("steps_to_goal", "")) for r in rows]
+    wall_times = [_parse_float(r.get("wall_time", "")) for r in rows]
+    planning_times = [_parse_float(r.get("planning_time", "")) for r in rows]
+    traj_joint = [_parse_float(r.get("trajectory_length_joint", "")) for r in rows]
+    traj_ee = [_parse_float(r.get("trajectory_length_ee", "")) for r in rows]
+    jerks = [_parse_float(r.get("smoothness_jerk", "")) for r in rows]
     return {
         "group": group,
         "difficulty_tag": difficulty_tag,
@@ -138,17 +181,25 @@ def _summarize_group(method: str, rows: list[dict], group: str, difficulty_tag: 
         "success_rate": _rate(rows, "success"),
         "collision_rate": _rate(rows, "collision"),
         "timeout_rate": _rate(rows, "timeout"),
-        "mean_final_ee_error": _mean([_parse_float(r.get("final_ee_error", "")) for r in rows]),
-        "std_final_ee_error": _std([_parse_float(r.get("final_ee_error", "")) for r in rows]),
-        "mean_final_joint_error": _mean([_parse_float(r.get("final_joint_error", "")) for r in rows]),
-        "mean_minimum_safety_margin": _mean([_parse_float(r.get("minimum_safety_margin", "")) for r in rows]),
-        "std_minimum_safety_margin": _std([_parse_float(r.get("minimum_safety_margin", "")) for r in rows]),
-        "mean_steps_to_goal": _mean([_parse_float(r.get("steps_to_goal", "")) for r in rows]),
-        "mean_wall_time": _mean([_parse_float(r.get("wall_time", "")) for r in rows]),
-        "mean_planning_time": _mean([_parse_float(r.get("planning_time", "")) for r in rows]),
-        "mean_trajectory_length_joint": _mean([_parse_float(r.get("trajectory_length_joint", "")) for r in rows]),
-        "mean_trajectory_length_ee": _mean([_parse_float(r.get("trajectory_length_ee", "")) for r in rows]),
-        "mean_smoothness_jerk": _mean([_parse_float(r.get("smoothness_jerk", "")) for r in rows]),
+        "mean_final_ee_error": _mean(final_ee_errors),
+        "median_final_ee_error": _median(final_ee_errors),
+        "std_final_ee_error": _std(final_ee_errors),
+        "mean_final_joint_error": _mean(final_joint_errors),
+        "mean_minimum_safety_margin": _mean(margins),
+        "median_minimum_safety_margin": _median(margins),
+        "std_minimum_safety_margin": _std(margins),
+        "mean_steps_to_goal": _mean(steps),
+        "median_steps_to_goal": _median(steps),
+        "mean_wall_time": _mean(wall_times),
+        "median_wall_time": _median(wall_times),
+        "iqr_wall_time": _iqr(wall_times),
+        "mean_planning_time": _mean(planning_times),
+        "mean_trajectory_length_joint": _mean(traj_joint),
+        "median_trajectory_length_joint": _median(traj_joint),
+        "mean_trajectory_length_ee": _mean(traj_ee),
+        "median_trajectory_length_ee": _median(traj_ee),
+        "mean_smoothness_jerk": _mean(jerks),
+        "median_smoothness_jerk": _median(jerks),
         "rrtstar_exact_rate": _rate(rows, "rrtstar_exact_solution") if method in {"rrtstar", "rrtstar_ompl"} else math.nan,
         "rrtstar_approximate_rate": _rate(rows, "rrtstar_approximate_solution") if method in {"rrtstar", "rrtstar_ompl"} else math.nan,
         "skipped_reason": " | ".join(skipped_reasons),
@@ -187,17 +238,29 @@ def _winner(smaller_is_better: bool, storm_value: float, sage_value: float, tole
     return "sage" if delta > 0 else "storm"
 
 
-def paired_comparison(episode_rows: list[dict]) -> tuple[list[dict], list[dict]]:
-    by_method_target = {(row["method_name"], row["target_id"]): row for row in episode_rows}
-    target_ids = sorted(
-        {row["target_id"] for row in episode_rows if row["method_name"] == "storm_mppi_tuned"}
-        & {row["target_id"] for row in episode_rows if row["method_name"] == "sage_mppi_tuned"}
-    )
+def paired_comparison(episode_rows: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    by_method_pair = {
+        (row["method_name"], str(row.get("benchmark_seed", "")), row["target_id"]): row
+        for row in episode_rows
+    }
+    storm_pairs = {
+        (str(row.get("benchmark_seed", "")), row["target_id"])
+        for row in episode_rows
+        if row["method_name"] == "storm_mppi_tuned"
+    }
+    sage_pairs = {
+        (str(row.get("benchmark_seed", "")), row["target_id"])
+        for row in episode_rows
+        if row["method_name"] == "sage_mppi_tuned"
+    }
+    target_pairs = sorted(storm_pairs & sage_pairs)
     target_rows = []
-    for target_id in target_ids:
-        storm = by_method_target[("storm_mppi_tuned", target_id)]
-        sage = by_method_target[("sage_mppi_tuned", target_id)]
+    for benchmark_seed, target_id in target_pairs:
+        storm = by_method_pair[("storm_mppi_tuned", benchmark_seed, target_id)]
+        sage = by_method_pair[("sage_mppi_tuned", benchmark_seed, target_id)]
         row = {
+            "pair_id": f"{benchmark_seed}:{target_id}" if benchmark_seed else target_id,
+            "benchmark_seed": benchmark_seed,
             "target_id": target_id,
             "difficulty_tag": storm.get("difficulty_tag") or sage.get("difficulty_tag") or "unknown",
             "storm_success": storm.get("success", ""),
@@ -251,7 +314,35 @@ def paired_comparison(episode_rows: list[dict]) -> tuple[list[dict], list[dict]]
                     "storm_win_rate": storm_wins / n if n else math.nan,
                 }
             )
-    return target_rows, summary_rows
+    outcome_rows = []
+    for difficulty, rows in sorted(by_difficulty.items()):
+        n = len(rows)
+        storm_success = sum(1 for row in rows if _parse_bool(row["storm_success"]))
+        sage_success = sum(1 for row in rows if _parse_bool(row["sage_success"]))
+        storm_timeout = 0
+        sage_timeout = 0
+        for row in rows:
+            storm = by_method_pair[("storm_mppi_tuned", str(row.get("benchmark_seed", "")), row["target_id"])]
+            sage = by_method_pair[("sage_mppi_tuned", str(row.get("benchmark_seed", "")), row["target_id"])]
+            storm_timeout += int(_parse_bool(storm.get("timeout", "")))
+            sage_timeout += int(_parse_bool(sage.get("timeout", "")))
+        storm_success_rate = storm_success / n if n else math.nan
+        sage_success_rate = sage_success / n if n else math.nan
+        storm_timeout_rate = storm_timeout / n if n else math.nan
+        sage_timeout_rate = sage_timeout / n if n else math.nan
+        outcome_rows.append(
+            {
+                "difficulty_tag": difficulty,
+                "num_pairs": n,
+                "storm_success_rate": storm_success_rate,
+                "sage_success_rate": sage_success_rate,
+                "sage_success_improvement": sage_success_rate - storm_success_rate,
+                "storm_timeout_rate": storm_timeout_rate,
+                "sage_timeout_rate": sage_timeout_rate,
+                "sage_timeout_reduction": storm_timeout_rate - sage_timeout_rate,
+            }
+        )
+    return target_rows, summary_rows, outcome_rows
 
 
 def _csv_value(value):
@@ -313,7 +404,7 @@ def main() -> int:
         episode_rows = _with_difficulty(list(csv.DictReader(f)), _target_difficulty_map(args.targets_path or None))
     summary_rows = summarize(episode_rows)
     difficulty_rows = summarize_by_difficulty(episode_rows)
-    paired_target_rows, paired_summary_rows = paired_comparison(episode_rows)
+    paired_target_rows, paired_summary_rows, paired_outcome_rows = paired_comparison(episode_rows)
 
     csv_path = results_root / "summary.csv"
     json_path = results_root / "summary.json"
@@ -325,9 +416,10 @@ def main() -> int:
     write_json(results_root / "summary_by_difficulty.json", {"summary_by_difficulty": difficulty_rows})
     _write_csv(results_root / "paired_storm_sage_by_target.csv", paired_target_rows, PAIRED_TARGET_FIELDS)
     _write_csv(results_root / "paired_storm_sage_summary.csv", paired_summary_rows, PAIRED_SUMMARY_FIELDS)
+    _write_csv(results_root / "paired_storm_sage_outcome_summary.csv", paired_outcome_rows, PAIRED_OUTCOME_FIELDS)
     write_json(
         results_root / "paired_storm_sage.json",
-        {"by_target": paired_target_rows, "summary": paired_summary_rows},
+        {"by_target": paired_target_rows, "summary": paired_summary_rows, "outcome_summary": paired_outcome_rows},
     )
     print(f"wrote summary to {csv_path}, {json_path}, {txt_path}")
     return 0

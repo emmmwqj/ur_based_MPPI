@@ -22,6 +22,7 @@ paths:
 benchmark_overrides:
   backend: python_internal_tuned_logic
   headless: true
+  benchmark_marker_visualization: false
   scene: tall
   use_dynamic_obstacles: false
   use_sequential_retargeting: false

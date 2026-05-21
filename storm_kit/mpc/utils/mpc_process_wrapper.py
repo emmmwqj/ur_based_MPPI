@@ -29,11 +29,25 @@ import copy
 import torch
 
 
-from ..utils.torch_utils import find_first_idx, find_last_idx
 #import multiprocessing import Queue
 from torch.multiprocessing import Pool, Process, set_start_method, Queue
 
 import numpy as np
+
+
+def _first_idx_after(array, value):
+    idx = torch.nonzero(array > value, as_tuple=False)
+    if idx.numel() == 0:
+        return None
+    return int(idx[0].item())
+
+
+def _shift_steps_for(command_tstep, value):
+    idx = _first_idx_after(command_tstep, value)
+    if idx is None:
+        return 0
+    return max(0, idx)
+
 
 class ControlProcess(object):
     def __init__(self, controller, control_space='acc', control_dt=0.01):
@@ -74,14 +88,22 @@ class ControlProcess(object):
         self.controller = controller
         self.control_dt = control_dt
         self.prev_mpc_tstep = 0.0
+
     def predict_next_state(self, t_step, curr_state):
         # predict next state
         # given current t_step, integrate to t_step+mpc_dt
-        t1_idx = find_first_idx(self.command_tstep, t_step) - 1
-        t2_idx = find_first_idx(self.command_tstep, t_step + self.mpc_dt) #- 1
+        t1_idx = _first_idx_after(self.command_tstep, t_step)
+        if t1_idx is None:
+            return curr_state
+        t2_idx = _first_idx_after(self.command_tstep, t_step + self.mpc_dt)
+        if t2_idx is None:
+            t2_idx = len(self.command_tstep)
+
+        start_idx = max(0, t1_idx - 1)
+        end_idx = min(t2_idx, len(self.command[0]))
 
         # integrate from t1->t2
-        for i in range(t1_idx, t2_idx):
+        for i in range(start_idx, end_idx):
             command = self.command[0][i]
             curr_state = self.controller.rollout_fn.dynamics_model.get_next_state(curr_state, command, self.mpc_dt)
     
@@ -98,7 +120,7 @@ class ControlProcess(object):
             curr_state = self.predict_next_state(t_step, curr_state)
 
         current_state = np.append(curr_state, t_step + self.mpc_dt)
-        shift_steps = find_first_idx(self.command_tstep, t_step + self.mpc_dt)
+        shift_steps = _shift_steps_for(self.command_tstep, t_step + self.mpc_dt)
         
         state_tensor = torch.as_tensor(current_state,**self.controller.tensor_args).unsqueeze(0)
 
@@ -107,6 +129,8 @@ class ControlProcess(object):
         command = list(self.controller.optimize(state_tensor, shift_steps=shift_steps))
         mpc_time = time.time() - mpc_time
         command[0] = command[0].cpu().numpy()
+        if command[0].shape[0] == 0:
+            raise RuntimeError("MPC optimizer returned an empty command horizon")
         self.command_tstep = self.traj_tstep + t_step
         
         self.opt_dt = mpc_time
@@ -135,9 +159,7 @@ class ControlProcess(object):
             
             # planned command:
             
-            shift_steps = find_first_idx(self.command_tstep, t_step + self.mpc_dt) #- 1
-            if(shift_steps < 0):
-                shift_steps = 0
+            shift_steps = _shift_steps_for(self.command_tstep, t_step + self.mpc_dt)
             
             opt_data = {'state': curr_state, 't_step':t_step + self.mpc_dt, 'done':self.done, 'params':self.params, 'shift_steps':shift_steps, 'pred_mpc_dt':self.mpc_dt}
             
@@ -149,6 +171,8 @@ class ControlProcess(object):
 
         # wait for first command
         while(self.command is None and self.result_queue.empty()):
+            if self.opt_process is not None and not self.opt_process.is_alive():
+                raise RuntimeError("MPC optimization process exited before returning a command")
             time.sleep(0.01)
 
         
@@ -179,9 +203,11 @@ class ControlProcess(object):
     
     def truncate_command(self, command, trunc_tstep, command_tstep):
         #print(trunc_tstep, command_tstep[:4])
-        f_idx = find_first_idx(command_tstep, trunc_tstep) #- 1
-        if(f_idx == -1):
-            f_idx = 0
+        if len(command) == 0:
+            raise RuntimeError("MPC command horizon is empty")
+        f_idx = _first_idx_after(command_tstep, trunc_tstep) #- 1
+        if f_idx is None:
+            f_idx = len(command) - 1
         #print(f_idx)
         return command[f_idx:], command_tstep[f_idx:]
 

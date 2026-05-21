@@ -54,7 +54,10 @@ def _check_target_set(report: dict, targets_payload: dict, checker: StaticTallCo
     targets = targets_payload.get("targets", [])
     _record(report, "scene_is_tall", "pass" if targets_payload.get("scene") == "tall" else "fail", str(targets_payload.get("scene")))
     profile = str(targets_payload.get("profile", "pilot"))
-    if profile == "formal_v2":
+    if profile == "formal_v3":
+        ok_count = 55 <= len(targets) <= 65
+        check_name = "target_count_formal_v3_size"
+    elif profile == "formal_v2":
         ok_count = len(targets) == 60
         check_name = "target_count_formal_v2_size"
     elif profile == "formal":
@@ -164,6 +167,12 @@ def _check_method_config(report: dict, config: dict) -> None:
         "gazebo_launch_reimplemented_in_python",
         "pass" if bool(overrides.get("gazebo_launch_reimplemented_in_python")) else "fail",
         str(overrides.get("gazebo_launch_reimplemented_in_python")),
+    )
+    _record(
+        report,
+        "benchmark_marker_visualization_disabled",
+        "pass" if not bool(overrides.get("benchmark_marker_visualization")) else "fail",
+        str(overrides.get("benchmark_marker_visualization")),
     )
 
     sage_entry = str(paths.get("sage_clean_controller_entry", ""))

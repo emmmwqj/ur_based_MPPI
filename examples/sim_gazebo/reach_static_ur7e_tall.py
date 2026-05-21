@@ -34,9 +34,6 @@ torch.multiprocessing.set_start_method('spawn', force=True)
 try:
     import rclpy
     from rclpy.executors import MultiThreadedExecutor
-    from geometry_msgs.msg import Point
-    from std_msgs.msg import ColorRGBA
-    from visualization_msgs.msg import Marker, MarkerArray
 except ImportError:
     print("=" * 60)
     print("错误: 未找到 ROS2 Python 包")
@@ -254,93 +251,6 @@ class TallGazeboRobotInterface(GazeboRobotInterface):
     def __init__(self, joint_names: list, control_rate: float = 50.0):
         super().__init__(joint_names, control_rate=control_rate)
 
-    def publish_markers(
-        self,
-        obstacles: dict,
-        goal_pos: np.ndarray,
-        ee_pos: np.ndarray,
-        collision_spheres=None,
-    ):
-        super().publish_markers(obstacles, goal_pos, ee_pos)
-
-        marker_array = MarkerArray()
-        stamp = self.get_clock().now().to_msg()
-        current_count = 0
-
-        if collision_spheres:
-            for marker_id, sphere in enumerate(collision_spheres):
-                marker = Marker()
-                marker.header.frame_id = "world"
-                marker.header.stamp = stamp
-                marker.ns = "collision_spheres"
-                marker.id = int(sphere.get("marker_id", marker_id))
-                marker.type = Marker.SPHERE
-                marker.action = Marker.ADD
-                marker.frame_locked = True
-                marker.pose.position.x = float(sphere["center_world"][0])
-                marker.pose.position.y = float(sphere["center_world"][1])
-                marker.pose.position.z = float(sphere["center_world"][2])
-                marker.pose.orientation.w = 1.0
-                marker.scale.x = 2.0 * sphere["radius"]
-                marker.scale.y = 2.0 * sphere["radius"]
-                marker.scale.z = 2.0 * sphere["radius"]
-                marker.color = ColorRGBA(r=1.0, g=0.78, b=0.12, a=0.45)
-                marker_array.markers.append(marker)
-            current_count = len(collision_spheres)
-
-        for marker_id in range(current_count, self._prev_collision_marker_count):
-            marker = Marker()
-            marker.header.frame_id = "world"
-            marker.header.stamp = stamp
-            marker.ns = "collision_spheres"
-            marker.id = marker_id
-            marker.action = Marker.DELETE
-            marker_array.markers.append(marker)
-
-        self._prev_collision_marker_count = current_count
-        self.pub_collision_sphere_markers.publish(marker_array)
-
-    def publish_top_trajectories(self, top_trajs_world):
-        marker_array = MarkerArray()
-        stamp = self.get_clock().now().to_msg()
-
-        clear_marker = Marker()
-        clear_marker.header.frame_id = "world"
-        clear_marker.header.stamp = stamp
-        clear_marker.action = Marker.DELETEALL
-        marker_array.markers.append(clear_marker)
-
-        if top_trajs_world is None or len(top_trajs_world) == 0:
-            self.pub_top_traj_markers.publish(marker_array)
-            return
-
-        for traj_id, traj_points in enumerate(top_trajs_world[:5]):
-            line_marker = Marker()
-            line_marker.header.frame_id = "world"
-            line_marker.header.stamp = stamp
-            line_marker.ns = "mppi_top_trajs"
-            line_marker.id = traj_id
-            line_marker.type = Marker.LINE_STRIP
-            line_marker.action = Marker.ADD
-            line_marker.pose.orientation.w = 1.0
-            line_marker.scale.x = 0.002
-            line_marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.95)
-            line_marker.points = []
-
-            for point in np.asarray(traj_points, dtype=np.float64):
-                if not np.all(np.isfinite(point)):
-                    continue
-                point_msg = Point()
-                point_msg.x = float(point[0])
-                point_msg.y = float(point[1])
-                point_msg.z = float(point[2])
-                line_marker.points.append(point_msg)
-
-            if len(line_marker.points) >= 2:
-                marker_array.markers.append(line_marker)
-
-        self.pub_top_traj_markers.publish(marker_array)
-
 
 def _compute_link_poses_robot_frame(rollout_fn, q: np.ndarray, dq: np.ndarray, tensor_args: dict):
     q_tensor = torch.as_tensor(q, **tensor_args).unsqueeze(0)
@@ -376,25 +286,35 @@ def _get_top_ee_trajs_world(
     if trajectories is not None and total_costs is not None:
         ee_pos_seq = trajectories.get("ee_pos_seq", None)
         if ee_pos_seq is not None:
-            if isinstance(ee_pos_seq, torch.Tensor):
-                ee_pos_seq_np = ee_pos_seq.detach().cpu().numpy()
-            else:
-                ee_pos_seq_np = np.asarray(ee_pos_seq)
-
-            if isinstance(total_costs, torch.Tensor):
-                total_costs_np = total_costs.detach().cpu().numpy()
-            else:
-                total_costs_np = np.asarray(total_costs)
-
-            if ee_pos_seq_np.ndim == 3 and ee_pos_seq_np.shape[-1] == 3 and total_costs_np.ndim == 1:
-                top_count = min(max_trajs, ee_pos_seq_np.shape[0], total_costs_np.shape[0])
-                if top_count > 0:
-                    top_indices = np.argsort(total_costs_np)[:top_count]
-                    top_trajs_np = ee_pos_seq_np[top_indices]
+            if isinstance(ee_pos_seq, torch.Tensor) and isinstance(total_costs, torch.Tensor):
+                if ee_pos_seq.ndim == 3 and ee_pos_seq.shape[-1] == 3 and total_costs.ndim == 1:
+                    top_count = min(max_trajs, int(ee_pos_seq.shape[0]), int(total_costs.shape[0]))
+                    if top_count <= 0:
+                        return None
+                    top_indices = torch.topk(total_costs, k=top_count, largest=False).indices
+                    top_trajs_np = ee_pos_seq.index_select(0, top_indices).detach().cpu().numpy()
                 else:
                     return None
             else:
-                return None
+                if isinstance(ee_pos_seq, torch.Tensor):
+                    ee_pos_seq_np = ee_pos_seq.detach().cpu().numpy()
+                else:
+                    ee_pos_seq_np = np.asarray(ee_pos_seq)
+
+                if isinstance(total_costs, torch.Tensor):
+                    total_costs_np = total_costs.detach().cpu().numpy()
+                else:
+                    total_costs_np = np.asarray(total_costs)
+
+                if ee_pos_seq_np.ndim == 3 and ee_pos_seq_np.shape[-1] == 3 and total_costs_np.ndim == 1:
+                    top_count = min(max_trajs, ee_pos_seq_np.shape[0], total_costs_np.shape[0])
+                    if top_count > 0:
+                        top_indices = np.argsort(total_costs_np)[:top_count]
+                        top_trajs_np = ee_pos_seq_np[top_indices]
+                    else:
+                        return None
+                else:
+                    return None
         else:
             return None
     else:
@@ -592,6 +512,7 @@ def mpc_control_main(args):
 
         loop_count = 0
         loop_start = time.time()
+        viz_update_every = max(0, int(args.viz_update_every))
 
         while rclpy.ok() and not shutdown_event.is_set():
             iter_start = time.time()
@@ -657,33 +578,35 @@ def mpc_control_main(args):
             ee_pos_robot = np.ravel(ee_pose["ee_pos_seq"].cpu().numpy())
             ee_pos_world = transform_point(robot_pos, robot_quat_xyzw, ee_pos_robot)
             robot.publish_ee_pose(ee_pos_world)
+            robot.publish_live_goal_ee_markers(current_goal_world, ee_pos_world)
 
-            link_pos_robot, link_rot_robot = _compute_link_poses_robot_frame(
-                rollout_fn,
-                q,
-                dq,
-                tensor_args,
-            )
-            collision_spheres_world = collision_sphere_visualizer.get_world_spheres(
-                link_pos_robot,
-                link_rot_robot,
-                robot_pos,
-                robot_quat_xyzw,
-            )
-            robot.publish_markers(
-                world_params,
-                current_goal_world,
-                ee_pos_world,
-                collision_spheres=collision_spheres_world,
-            )
-            top_trajs_world = _get_top_ee_trajs_world(
-                mpc,
-                robot_pos,
-                robot_quat_xyzw,
-                ee_pos_world,
-                max_trajs=5,
-            )
-            robot.publish_top_trajectories(top_trajs_world)
+            if viz_update_every > 0 and loop_count % viz_update_every == 0:
+                link_pos_robot, link_rot_robot = _compute_link_poses_robot_frame(
+                    rollout_fn,
+                    q,
+                    dq,
+                    tensor_args,
+                )
+                collision_spheres_world = collision_sphere_visualizer.get_world_spheres(
+                    link_pos_robot,
+                    link_rot_robot,
+                    robot_pos,
+                    robot_quat_xyzw,
+                )
+                robot.publish_markers(
+                    world_params,
+                    current_goal_world,
+                    ee_pos_world,
+                    collision_spheres=collision_spheres_world,
+                )
+                top_trajs_world = _get_top_ee_trajs_world(
+                    mpc,
+                    robot_pos,
+                    robot_quat_xyzw,
+                    ee_pos_world,
+                    max_trajs=5,
+                )
+                robot.publish_top_trajectories(top_trajs_world)
 
             loop_count += 1
             if loop_count % 50 == 0:
@@ -751,5 +674,6 @@ if __name__ == "__main__":
     parser.add_argument("--no-cuda", dest="cuda", action="store_false", help="禁用 CUDA")
     parser.add_argument("--rate", type=float, default=50.0, help="控制频率 Hz (默认: 50)")
     parser.add_argument("--max-steps", type=int, default=0, help="最大控制步数，0 表示不限")
+    parser.add_argument("--viz-update-every", type=int, default=10, help="重型 RViz marker 刷新步数间隔；0 表示关闭碰撞球和预测轨迹刷新")
     args = parser.parse_args()
     sys.exit(mpc_control_main(args))

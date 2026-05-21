@@ -193,7 +193,12 @@ if [[ "${READY}" != "true" ]]; then
 fi
 
 log "Gazebo is ready, starting clean SAGE controller"
-setsid bash -lc "cd '${SCRIPT_DIR}' && ./run_reach_static_tall.sh" &
+setsid bash -lc 'cd "$1" && shift && ./run_reach_static_tall.sh "$@"' _ "${SCRIPT_DIR}" "$@" &
 CONTROLLER_PGID=$!
 
+set +e
 wait "${CONTROLLER_PGID}"
+CONTROLLER_STATUS=$?
+set -e
+cleanup
+exit "${CONTROLLER_STATUS}"
