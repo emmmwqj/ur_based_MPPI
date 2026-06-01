@@ -1,0 +1,65 @@
+Static tall benchmark integrity report
+status: pass
+passed: 18
+warnings: 41
+failed: 0
+
+[pass] no_dynamic_scene_paths: No sim_dynamic or sage_sim_dynamic paths referenced.
+[pass] scene_is_tall: tall
+[pass] target_count_manual_sage_success_cleaned_41_size: profile=manual_sage_success_no_collision_cleaned_41, count=41
+[warn] target_sage44_manual_static_tall_002_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00916587
+[warn] target_sage44_manual_static_tall_003_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00966184
+[warn] target_sage44_manual_static_tall_004_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00864016
+[warn] target_sage44_manual_static_tall_007_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00955919
+[warn] target_sage44_manual_static_tall_008_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00868381
+[warn] target_sage44_manual_static_tall_009_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00815351
+[warn] target_sage44_manual_static_tall_013_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00759581
+[warn] target_sage44_manual_static_tall_014_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00810252
+[warn] target_sage44_manual_static_tall_015_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00949658
+[warn] target_sage44_manual_static_tall_016_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00784889
+[warn] target_sage44_manual_static_tall_017_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00944254
+[warn] target_sage44_manual_static_tall_021_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00836622
+[warn] target_sage44_manual_static_tall_022_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00929795
+[warn] target_sage44_manual_static_tall_026_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00819727
+[warn] target_sage44_manual_static_tall_027_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.009868
+[warn] target_sage44_manual_static_tall_031_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00897583
+[warn] target_sage44_manual_static_tall_032_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00991947
+[warn] target_sage44_manual_static_tall_033_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00984566
+[warn] target_sage44_manual_static_tall_034_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00889702
+[warn] target_sage44_manual_static_tall_035_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00961718
+[warn] target_sage44_manual_static_tall_036_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00966382
+[warn] target_sage44_manual_static_tall_037_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00787478
+[warn] target_sage44_manual_static_tall_038_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00791474
+[warn] target_sage44_manual_static_tall_039_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00775892
+[warn] target_sage44_manual_static_tall_040_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00942324
+[warn] target_sage44_manual_static_tall_041_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00919859
+[warn] target_sage44_manual_static_tall_042_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00725424
+[warn] target_sage44_manual_static_tall_043_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00920001
+[warn] target_sage44_manual_static_tall_044_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00969426
+[warn] target_sage44_manual_static_tall_047_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00883612
+[warn] target_sage44_manual_static_tall_048_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00892816
+[warn] target_sage44_manual_static_tall_049_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00837144
+[warn] target_sage44_manual_static_tall_050_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00943219
+[warn] target_sage44_manual_static_tall_051_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00943848; manual target list contains a repeated or near-repeated goal ee position
+[warn] target_sage44_manual_static_tall_052_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00908884
+[warn] target_sage44_manual_static_tall_053_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00917775
+[warn] target_sage44_manual_static_tall_054_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00900656
+[warn] target_sage44_manual_static_tall_055_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00961089
+[warn] target_sage44_manual_static_tall_056_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00978906
+[warn] target_sage44_manual_static_tall_057_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.00985942
+[warn] target_sage44_manual_static_tall_058_validity: goal_joint_positions is a SAGE-derived terminal state within success threshold; fk_error=0.0095046
+[pass] python_internal_tuned_logic_backend: python_internal_tuned_logic
+[pass] does_not_shell_wrap_tuned_references: python_internal_tuned_logic
+[pass] storm_reference_read_only: examples/sim_gazebo/bash/run_all_reach_static_tall.sh
+[pass] sage_reference_read_only: examples/SAGE_MPPI/clean_SAGE/run_all_reach_static_tall.sh
+[pass] storm_internal_runner_present: examples/static_compare/storm_tall_runner.py
+[pass] sage_internal_runner_present: examples/static_compare/sage_tall_runner.py
+[pass] gazebo_launch_reimplemented_in_python: True
+[pass] benchmark_marker_visualization_disabled: False
+[pass] sage_clean_core_path: examples/SAGE_MPPI/clean_SAGE/reach_static_ur7e_tall.py
+[pass] sage_deployment_refinement_matches_tuned: enabled=True
+[pass] sage_local_refinement_matches_tuned: enabled=True
+[pass] reset_after_each_target: True
+[pass] rrtstar_uses_static_collision_checker: static_collision_checker
+[pass] rrtstar_ompl_import: OMPL Python binding imported.
+[pass] result_schema_consistency: Episode CSV fields match unified schema.

@@ -96,7 +96,7 @@ cost:
     vec_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
   manipulability:
-    weight: 30.0
+    weight: 0.0
     gaussian_params: {"n": 0, "c": 0.0, "s": 0, "r": 10.0}
     thresh: 0.03
 

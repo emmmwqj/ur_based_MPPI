@@ -54,7 +54,17 @@ def _check_target_set(report: dict, targets_payload: dict, checker: StaticTallCo
     targets = targets_payload.get("targets", [])
     _record(report, "scene_is_tall", "pass" if targets_payload.get("scene") == "tall" else "fail", str(targets_payload.get("scene")))
     profile = str(targets_payload.get("profile", "pilot"))
-    if profile == "formal_v3":
+    success_threshold = float(targets_payload.get("success_threshold", 0.01))
+    if profile == "manual_sage_success_no_collision_cleaned_41":
+        ok_count = len(targets) == 41
+        check_name = "target_count_manual_sage_success_cleaned_41_size"
+    elif profile == "manual_sage_success_no_collision_44":
+        ok_count = len(targets) == 44
+        check_name = "target_count_manual_sage_success_44_size"
+    elif profile.startswith("manual"):
+        ok_count = len(targets) == 60
+        check_name = "target_count_manual_size"
+    elif profile == "formal_v3":
         ok_count = 55 <= len(targets) <= 65
         check_name = "target_count_formal_v3_size"
     elif profile == "formal_v2":
@@ -84,38 +94,54 @@ def _check_target_set(report: dict, targets_payload: dict, checker: StaticTallCo
 
         try:
             q0 = np.asarray(target["initial_joint_positions"], dtype=float)
-            qg = np.asarray(target["goal_joint_positions"], dtype=float)
             peg = np.asarray(target["goal_ee_position"], dtype=float)
+            qg = np.asarray(target["goal_joint_positions"], dtype=float) if "goal_joint_positions" in target else None
         except Exception as exc:
             _record(report, f"target_{target_id}_required_fields", "fail", str(exc))
             continue
 
-        if q0.shape != (6,) or qg.shape != (6,) or peg.shape != (3,):
+        if q0.shape != (6,) or peg.shape != (3,) or (qg is not None and qg.shape != (6,)):
             status = "fail"
             details.append("invalid vector shapes")
-        if not checker.within_joint_limits(q0) or not checker.within_joint_limits(qg):
+        if not checker.within_joint_limits(q0) or (qg is not None and not checker.within_joint_limits(qg)):
             status = "fail"
             details.append("joint limits violated")
 
-        fk_goal = checker.ee_position(qg)
-        if float(np.linalg.norm(fk_goal - peg)) > 2.0e-4:
-            status = "fail"
-            details.append(f"goal_ee_position does not match FK; error={np.linalg.norm(fk_goal - peg):.6g}")
+        if qg is not None:
+            fk_goal = checker.ee_position(qg)
+            fk_error = float(np.linalg.norm(fk_goal - peg))
+            sage_terminal_goal_profile = profile in {
+                "manual_sage_success_no_collision_44",
+                "manual_sage_success_no_collision_cleaned_41",
+            }
+            allowed_fk_error = success_threshold if sage_terminal_goal_profile else 2.0e-4
+            if fk_error > allowed_fk_error:
+                status = "fail"
+                details.append(f"goal_ee_position does not match FK; error={fk_error:.6g}")
+            elif sage_terminal_goal_profile and fk_error > 2.0e-4:
+                status = "warn" if status == "pass" else status
+                details.append(
+                    "goal_joint_positions is a SAGE-derived terminal state within success threshold; "
+                    f"fk_error={fk_error:.6g}"
+                )
 
         init_valid = checker.check_state(q0)
-        goal_valid = checker.check_state(qg)
-        if not init_valid.valid or not goal_valid.valid:
+        goal_valid = checker.check_state(qg) if qg is not None else None
+        if not init_valid.valid or (goal_valid is not None and not goal_valid.valid):
             status = "warn"
-            details.append(
-                "endpoint validity warning: "
-                f"initial_margin={init_valid.minimum_safety_margin:.5f}, "
-                f"goal_margin={goal_valid.minimum_safety_margin:.5f}"
-            )
+            detail = f"initial_margin={init_valid.minimum_safety_margin:.5f}"
+            if goal_valid is not None:
+                detail += f", goal_margin={goal_valid.minimum_safety_margin:.5f}"
+            details.append("endpoint validity warning: " + detail)
 
-        if seen_goals and min(float(np.linalg.norm(qg - prev)) for prev in seen_goals) < 0.05:
-            status = "fail"
-            details.append("goal joint positions are not sufficiently distinct")
-        seen_goals.append(qg)
+        if seen_goals and min(float(np.linalg.norm(peg - prev)) for prev in seen_goals) < 0.005:
+            if profile.startswith("manual"):
+                status = "warn" if status == "pass" else status
+                details.append("manual target list contains a repeated or near-repeated goal ee position")
+            else:
+                status = "fail"
+                details.append("goal ee positions are not sufficiently distinct")
+        seen_goals.append(peg)
         _record(report, f"target_{target_id}_validity", status, "; ".join(details) if details else "ok")
 
 

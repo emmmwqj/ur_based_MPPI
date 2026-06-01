@@ -1,0 +1,4 @@
+Static tall benchmark summary
+
+sage_mppi_tuned: episodes=60, status=ok, success_rate=0.733, collision_rate=0.0833, timeout_rate=0.267, mean_final_ee_error=0.035781, mean_min_margin=0.038063
+storm_mppi_tuned: episodes=60, status=ok, success_rate=0.533, collision_rate=0, timeout_rate=0.467, mean_final_ee_error=0.065089, mean_min_margin=0.049308
