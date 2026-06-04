@@ -1,0 +1,54 @@
+# ============================================================================
+# UR7e HIL SAGE-MPPI (硬件在环) - 机器人基座配置
+# ============================================================================
+# 真实 UR7e 机器人配置，供 examples/HIL_sage 使用
+# ============================================================================
+
+# @package _global_
+use_cuda: True
+cuda_device_num: 0
+
+sim_params:
+  # UR7e URDF 文件路径
+  sim_urdf: "urdf/ur7e/ur7e.urdf"
+
+  # 机器人基座位置和姿态 (与真实安装一致)
+  # Position: [x, y, z], Quaternion: [qx, qy, qz, qw]
+  robot_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+  # UR7e 初始关节角度 (6 DOF)
+  init_state: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
+
+  # 控制模式
+  control_mode: 'position'
+
+  # HIL 专用参数
+  hil:
+    # 机器人 IP 地址
+    robot_ip: "192.168.56.100"
+    
+    # ROS2 话题
+    joint_state_topic: "/joint_states"
+    position_cmd_topic: "/forward_position_controller/commands"  # 适合高频 MPC
+    
+    # 关节名称 (与 UR ROS2 Driver 一致)
+    joint_names:
+      - 'shoulder_pan_joint'
+      - 'shoulder_lift_joint'
+      - 'elbow_joint'
+      - 'wrist_1_joint'
+      - 'wrist_2_joint'
+      - 'wrist_3_joint'
+    
+    # 安全限制
+    safety:
+      max_velocity: 0.5        # rad/s (降低速度保证安全)
+      max_acceleration: 1.0    # rad/s^2
+      velocity_scaling: 0.5    # 速度缩放因子
+
+  asset_options:
+    fix_base_link: True
+    flip_visual_attachments: False 
+    armature: 0.001
+    disable_gravity: True
+    collapse_fixed_joints: True
