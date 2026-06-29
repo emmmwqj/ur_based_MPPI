@@ -1,0 +1,15 @@
+# RTDE + servoJ execution parameters for examples/HIL_sage.
+# This file is used by ur7e_hil_sage_mpc_rtde.py and does not alter the
+# existing forward_position_controller path.
+
+robot_ip: "192.168.56.100"     # URSim default; override for a real UR7e
+use_rtde_backend: true
+
+servo_frequency: 500           # allowed: 125, 250, 500 Hz
+lookahead_time: 0.10
+gain: 300
+
+max_joint_speed: 0.5           # scalar rad/s or comma-separated per-joint list
+max_joint_acceleration: 0.0    # 0 disables acceleration limiting; interface is reserved
+
+log_every_n_ticks: 1
