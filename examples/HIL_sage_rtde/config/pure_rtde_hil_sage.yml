@@ -1,0 +1,19 @@
+# Pure RTDE HIL SAGE-MPPI runtime parameters.
+
+robot_ip: "192.168.56.100"
+servo_frequency: 500
+lookahead_time: 0.10
+gain: 300
+max_joint_speed: 0.5
+max_joint_acceleration: 0.0
+
+rate: 50.0
+state_publish_rate: 125.0
+connection_timeout: 10.0
+viz_update_every: 5
+servo_log_every: 1
+
+task_file: "config/ur7e_reacher_hil_sage.yml"
+robot_file: "config/ur7e_robot_hil_sage.yml"
+world_file: "config/collision_world_hil.yml"
+joint_state_topic: "/joint_states"
